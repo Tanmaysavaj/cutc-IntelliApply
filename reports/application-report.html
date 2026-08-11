@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Application Advisor Report</title>
+
+    <style>
+        :root {
+            --bg-color: #f8fafc;
+            --card-bg: #ffffff;
+            --text-main: #1e293b;
+            --text-muted: #64748b;
+            --primary: #2563eb;
+            --border-color: #e2e8f0;
+            --success-bg: #dcfce7;
+            --success-text: #15803d;
+            --danger-bg: #fee2e2;
+            --danger-text: #b91c1c;
+            --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
+            --radius: 10px;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            margin: 0;
+            padding: 40px 20px;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 850px;
+            margin: 0 auto;
+        }
+
+        .header {
+            margin-bottom: 24px;
+            border-bottom: 2px solid var(--border-color);
+            padding-bottom: 12px;
+        }
+
+        .header h1 {
+            font-size: 28px;
+            color: #0f172a;
+            margin: 0;
+            font-weight: 700;
+        }
+
+        .card {
+            background-color: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius);
+            padding: 24px;
+            margin-bottom: 24px;
+            box-shadow: var(--shadow);
+        }
+
+        .card-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 16px;
+        }
+
+        h2 {
+            font-size: 18px;
+            color: #0f172a;
+            margin: 0 0 16px 0;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .card-header h2 {
+            margin-bottom: 0;
+        }
+
+        /* Top Metrics Overview */
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 20px;
+            margin-bottom: 24px;
+        }
+
+        .metric-card {
+            background-color: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius);
+            padding: 20px;
+            box-shadow: var(--shadow);
+        }
+
+        .metric-title {
+            font-size: 13px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--text-muted);
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-weight: 600;
+            font-size: 14px;
+            background-color: #eff6ff;
+            color: var(--primary);
+        }
+
+        .score-display {
+            font-size: 32px;
+            font-weight: 800;
+            color: var(--primary);
+            line-height: 1;
+        }
+
+        .score-denom {
+            font-size: 16px;
+            color: var(--text-muted);
+            font-weight: 500;
+        }
+
+        /* Standard Lists */
+        ul {
+            margin: 0;
+            padding-left: 20px;
+        }
+
+        li {
+            margin-bottom: 8px;
+        }
+
+        li:last-child {
+            margin-bottom: 0;
+        }
+
+        .strengths-list li::marker {
+            color: #16a34a;
+        }
+
+        .weaknesses-list li::marker {
+            color: #dc2626;
+        }
+
+        /* Tables */
+        table {
+            border-collapse: collapse;
+            width: 100%;
+            margin-top: 8px;
+        }
+
+        th, td {
+            padding: 12px 16px;
+            text-align: left;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        th {
+            background-color: #f8fafc;
+            color: var(--text-muted);
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            font-weight: 600;
+        }
+
+        tr:last-child td {
+            border-bottom: none;
+        }
+
+        .table-section-cell {
+            font-weight: 600;
+            color: #0f172a;
+            white-space: nowrap;
+            width: 25%;
+            vertical-align: top;
+        }
+
+        /* Q&A List */
+        .qa-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .qa-item {
+            padding-bottom: 16px;
+            margin-bottom: 16px;
+            border-bottom: 1px dashed var(--border-color);
+        }
+
+        .qa-item:last-child {
+            padding-bottom: 0;
+            margin-bottom: 0;
+            border-bottom: none;
+        }
+
+        .qa-question {
+            font-weight: 600;
+            color: #0f172a;
+            margin-bottom: 4px;
+        }
+
+        .qa-reason {
+            color: var(--text-muted);
+            font-size: 14px;
+        }
+    </style>
+</head>
+
+<body>
+
+<div class="container">
+
+    <div class="header">
+        <h1>Application Advisor Report</h1>
+    </div>
+
+    <!-- Summary Metrics -->
+    <div class="metrics-grid">
+        <div class="metric-card">
+            <div class="metric-title">Job Legitimacy</div>
+            <div style="margin-bottom: 10px;">
+                <span class="badge">Legitimate</span>
+            </div>
+            <div style="font-size: 14px; color: var(--text-muted);">
+                The job posting is for a well-known company, Cohere, and aligns with typical intern roles in the tech industry. The company research indicates a strong, established presence and recent news in the AI space, further validating its legitimacy. The remote status for Canada/United States is also common for large tech companies.
+            </div>
+        </div>
+
+        <div class="metric-card">
+            <div class="metric-title">Resume Fit</div>
+            <div class="score-display">
+                85<span class="score-denom">/100</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Strengths -->
+    <div class="card">
+        <h2>Strengths</h2>
+        <ul class="strengths-list">
+        
+            <li>Strong backend development skills with Python, Flask, and FastAPI, aligning with Cohere's focus on building robust platforms and services.</li>
+        
+            <li>Extensive experience with Docker, Kubernetes, and AWS, directly addressing the need for scalable services and infrastructure.</li>
+        
+            <li>Proven ability in log analysis, structured logging, and debugging distributed services, crucial for maintaining performance and reliability.</li>
+        
+            <li>Experience in processing unstructured data, JSON parsing, and asynchronous pipelines is highly relevant to designing robust data pipelines.</li>
+        
+            <li>Familiarity with Machine Learning Fundamentals, NLP, LLM APIs, and GenAI Workflows positions the candidate well for an AI-focused company like Cohere.</li>
+        
+            <li>Experience with CI/CD pipelines, Git, and GitHub demonstrates understanding of modern software development practices.</li>
+        
+            <li>Previous internship experience as a Software Developer and IT Support & Systems Developer showcases practical application of skills.</li>
+        
+        </ul>
+    </div>
+
+    <!-- Weaknesses -->
+    <div class="card">
+        <h2>Weaknesses</h2>
+        <ul class="weaknesses-list">
+        
+            <li>Limited explicit mention of full-stack development or frontend technologies (e.g., Angular, React) which might be relevant for 'delightful experiences for user-facing products'.</li>
+        
+            <li>While Python is strong, the job description implies a breadth of skills across different areas (Frontend, Backend, Full-stack, Infrastructure, ML, NLP), and some areas could be strengthened.</li>
+        
+            <li>Although 'System Design' is listed as a hard skill, the depth of experience for complex, large-scale system design might be less pronounced for an intern role but is a good area for growth.</li>
+        
+        </ul>
+    </div>
+
+    <!-- Resume Suggestions -->
+    <div class="card" style="padding: 12px 24px;">
+        <h2>Resume Suggestions</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Section</th>
+                    <th>Suggestion</th>
+                </tr>
+            </thead>
+            <tbody>
+            
+                <tr>
+                    <td class="table-section-cell">Summary/Objective</td>
+                    <td>Add a summary or objective statement at the top of the resume that clearly states career goals and highlights key relevant skills for an AI/ML Software Engineer Intern role, specifically mentioning interest in Cohere's mission.</td>
+                </tr>
+            
+                <tr>
+                    <td class="table-section-cell">Skills</td>
+                    <td>Under 'Machine Learning Fundamentals' or 'NLP', explicitly list any ML frameworks or libraries used (e.g., TensorFlow, PyTorch, scikit-learn) if applicable, beyond just concepts like NLP and LLM APIs. Quantify ML project impact if possible.</td>
+                </tr>
+            
+                <tr>
+                    <td class="table-section-cell">Work Experience</td>
+                    <td>For the 'Jewlr' role, specifically connect the 'Flask microservice' to any potential user-facing impact or direct contribution to product reliability, aligning with Cohere's 'Ship delightful experiences for our user-facing products' responsibility. Also, highlight how the log analysis directly improved system performance or user experience, aligning with 'improve performance and reliability across Cohere'.</td>
+                </tr>
+            
+                <tr>
+                    <td class="table-section-cell">Work Experience</td>
+                    <td>For the 'ScaleTech' role, elaborate on how the backend services improved data consistency and reduced integration failures, translating these achievements into business value. Emphasize contributions to 'tech writing skills through maintaining and contributing to technical documentation' if applicable from previous roles.</td>
+                </tr>
+            
+                <tr>
+                    <td class="table-section-cell">Projects</td>
+                    <td>Expand on the 'IntelliApply' and 'Log Analysis & Pattern Detection Module' projects. Detail the technologies used, the problem solved, the candidate's specific contributions, and the impact or results. If 'IntelliApply' involves AI, specify the ML/NLP components and APIs used to showcase GenAI workflow experience.</td>
+                </tr>
+            
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Cover Letter Points -->
+    <div class="card">
+        <h2>Cover Letter Talking Points</h2>
+        <ul>
+        
+            <li>Express enthusiasm for Cohere's mission to 'scale intelligence to serve humanity' and building enterprise AI, directly referencing company research.</li>
+        
+            <li>Highlight strong backend development skills, particularly with Python, Flask, and FastAPI, and how these can contribute to building API platforms and user-facing products.</li>
+        
+            <li>Emphasize experience with distributed systems, Docker, Kubernetes, and AWS for designing and implementing scalable infrastructure.</li>
+        
+            <li>Showcase practical experience in log analysis, troubleshooting, and performance optimization, connecting it to maintaining reliability and improving system performance.</li>
+        
+            <li>Mention specific interest and foundational knowledge in Machine Learning, NLP, LLM APIs, and GenAI Workflows, demonstrating readiness to contribute to Cohere's AI initiatives.</li>
+        
+            <li>Refer to previous internship experiences at Jewlr and ScaleTech, detailing how projects like the Flask microservice for log analysis or building backend services align with Cohere's key responsibilities.</li>
+        
+            <li>Point out understanding of CI/CD, Agile/Scrum, and collaboration, reflecting Cohere's value of 'nimble collaborators and intentional thinkers'.</li>
+        
+        </ul>
+    </div>
+
+    <!-- Interview Questions -->
+    <div class="card">
+        <h2>Interview Questions</h2>
+        <ul class="qa-list">
+        
+            <li class="qa-item">
+                <div class="qa-question">Can you describe a time you designed or contributed to a data pipeline for processing unstructured data? What challenges did you face, and how did you overcome them?</div>
+                <div class="qa-reason">This directly relates to the 'Design and implement robust data pipelines (crawlers, storage, filters)' responsibility and the candidate's experience with unstructured data processing and JSON parsing.</div>
+            </li>
+        
+            <li class="qa-item">
+                <div class="qa-question">Cohere builds cutting-edge foundation models and end-to-end AI products. How do you see your experience with Machine Learning Fundamentals, NLP, and LLM APIs contributing to this aspect of our work?</div>
+                <div class="qa-reason">This probes the candidate's understanding and application of their ML/NLP skills in the context of Cohere's core business, linking to the preferred skills and company's mission.</div>
+            </li>
+        
+            <li class="qa-item">
+                <div class="qa-question">You have experience deploying containerized services on Kubernetes and analyzing structured logs. Can you walk us through your process for diagnosing a performance bottleneck or system failure in a distributed system?</div>
+                <div class="qa-reason">This question assesses the candidate's practical experience in 'Debugging Distributed Services', 'Log Analysis', and 'System Metrics Monitoring', all of which are critical for an infrastructure or backend role at Cohere.</div>
+            </li>
+        
+            <li class="qa-item">
+                <div class="qa-question">The job description mentions 'Ship delightful experiences for our user-facing products'. While your resume is strong in backend, how would you approach ensuring a positive user experience from a backend or infrastructure perspective?</div>
+                <div class="qa-reason">This question addresses a potential area of less direct experience (frontend/UX) and allows the candidate to demonstrate a holistic understanding of product development and how their backend skills contribute to user satisfaction.</div>
+            </li>
+        
+            <li class="qa-item">
+                <div class="qa-question">Cohere values thoughtful preparation, shared ownership, and early collaboration. Can you give an example from your past experience where you demonstrated these qualities in a team project?</div>
+                <div class="qa-reason">This behavioral question assesses alignment with Cohere's company culture, drawing from the provided company research about their values.</div>
+            </li>
+        
+        </ul>
+    </div>
+
+</div>
+
+</body>
+</html>

@@ -1,0 +1,9 @@
+openai
+pydantic
+python-dotenv
+typer
+rich
+tavily-python
+pymupdf
+jinja2
+python-whois

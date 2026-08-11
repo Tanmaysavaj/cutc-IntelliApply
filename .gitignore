@@ -1,3 +1,7 @@
 input/*
 .env
 data/*
+.vscode/*
+.venv/
+__pycache__/
+*.pyc

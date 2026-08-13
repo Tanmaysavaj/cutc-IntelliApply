@@ -1,13 +1,22 @@
 """Schemas module."""
 
-from app.schemas.job import JobRequest, JobResponse, JobResponseData, ErrorResponse
+from app.schemas.job import (
+    ExtractionInfo,
+    JobResponseSuccessData,
+    JobResponseSuccess,
+    JobResponsePartial,
+    JobResponseFailed,
+    ErrorResponse,
+)
 from app.schemas.resume import ResumeResponse, ResumeResponseData, UploadRequest, ErrorResponse as ResumeErrorResponse
 
 __all__ = [
     # Job schemas
-    "JobRequest",
-    "JobResponse",
-    "JobResponseData",
+    "ExtractionInfo",
+    "JobResponseSuccessData",
+    "JobResponseSuccess",
+    "JobResponsePartial",
+    "JobResponseFailed",
     "ErrorResponse",
     # Resume schemas
     "ResumeResponse",

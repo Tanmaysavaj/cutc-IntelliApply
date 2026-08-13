@@ -10,20 +10,59 @@ from pydantic import BaseModel, Field
 from src.models.job import JobPosting as JobPostingModel
 
 
-class JobResponseData(BaseModel):
-    """Response data containing the processed job posting."""
+class ExtractionInfo(BaseModel):
+    """Information about the job extraction process."""
+    source: Optional[str] = Field(
+        default=None,
+        description="Source of the job content (url, description, or None)"
+    )
+    method: Optional[str] = Field(
+        default=None,
+        description="Method used (url, manual, fallback, or None)"
+    )
+    status: str = Field(
+        default="pending",
+        description="Extraction status (success, failed, partial)"
+    )
+    reason: Optional[str] = Field(
+        default=None,
+        description="Reason for failure or partial result"
+    )
+
+
+class JobResponseSuccessData(BaseModel):
+    """Response data for successful job extraction."""
     job_id: str
     status: str
     processed_at: datetime
     data: JobPostingModel
 
 
-class JobResponse(BaseModel):
-    """Standard response structure for job endpoint."""
-    success: bool
+class JobResponseSuccess(BaseModel):
+    """Success response structure for job endpoint."""
+    success: bool = True
     job_id: str
-    status: str
-    data: Optional[JobResponseData] = None
+    status: str = "processed"
+    extraction: ExtractionInfo
+    data: JobResponseSuccessData
+
+
+class JobResponsePartial(BaseModel):
+    """Partial response for job with limited extraction."""
+    success: bool = True
+    job_id: str
+    status: str = "partial"
+    extraction: ExtractionInfo
+    data: Optional[JobResponseSuccessData] = None
+
+
+class JobResponseFailed(BaseModel):
+    """Failed response structure for job endpoint."""
+    success: bool = False
+    job_id: str
+    status: str = "extraction_failed"
+    extraction: ExtractionInfo
+    data: None = None
 
 
 class ErrorResponse(BaseModel):
@@ -33,21 +72,11 @@ class ErrorResponse(BaseModel):
     job_id: Optional[str] = None
 
 
-class JobRequest(BaseModel):
-    """Request model for job processing."""
-    description: Optional[str] = Field(
-        default=None,
-        description="Job description text to process"
-    )
-    url: Optional[str] = Field(
-        default=None,
-        description="URL to job posting to scrape and process"
-    )
-
-
 __all__ = [
-    "JobRequest",
-    "JobResponse",
-    "JobResponseData",
+    "ExtractionInfo",
+    "JobResponseSuccessData",
+    "JobResponseSuccess",
+    "JobResponsePartial",
+    "JobResponseFailed",
     "ErrorResponse",
 ]

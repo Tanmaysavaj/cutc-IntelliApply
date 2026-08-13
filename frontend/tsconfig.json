@@ -19,7 +19,14 @@
       }
     ],
     "paths": {
-      "@/*": ["./*"]
+      "@/*": ["./*"],
+      "@/components/*": ["./components/*"],
+      "@/app/*": ["./app/*"],
+      "@/contexts/*": ["./app/contexts/*"],
+      "@/hooks/*": ["./app/hooks/*"],
+      "@/types/*": ["./app/types/*"],
+      "@/api/*": ["./app/api/*"],
+      "@/utils/*": ["./app/utils/*"]
     }
   },
   "include": [

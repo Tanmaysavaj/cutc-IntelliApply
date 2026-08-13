@@ -2,6 +2,7 @@
 
 import sys
 from pathlib import Path
+from unittest.mock import patch
 
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -783,3 +784,252 @@ class TestAnalysisEndpoint:
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
+
+
+
+class TestAnalysisEndpointWithAIInsights:
+    """Tests for the updated POST /api/analysis endpoint with AI insights."""
+    
+    @patch('app.api.analysis.LLMService')
+    @patch('app.api.analysis.extract_resume_from_pdf')
+    @patch('app.api.analysis.extract_job_from_description')
+    @patch('app.api.analysis.calculate_match_result')
+    @patch('app.services.ai_insights_service.AIInsightsService')
+    def test_analysis_returns_ai_insights(
+        self,
+        mock_ai_service_class,
+        mock_calculate_match,
+        mock_extract_job,
+        mock_extract_resume,
+        mock_llm_service_class,
+        client
+    ):
+        """Test that analysis endpoint returns AI insights in response."""
+        # Mock resume extraction
+        mock_resume = Mock()
+        mock_resume.hard_skills = ["Python", "SQL"]
+        mock_resume.soft_skills = ["Communication"]
+        mock_resume.work_experience = []
+        mock_resume.education = []
+        mock_extract_resume.return_value = mock_resume
+        
+        # Mock job extraction
+        mock_job = Mock()
+        mock_job.job_title = "Developer"
+        mock_job.company_name = "Test Corp"
+        mock_job.required_skills = ["Python", "SQL", "AWS"]
+        mock_job.preferred_skills = ["Docker"]
+        mock_job.key_responsibilities = ["Build features"]
+        mock_job.experience_level = "3+ years"
+        mock_job.education_requirements = "Bachelor's"
+        mock_extract_job.return_value = mock_job
+        
+        # Mock match result
+        mock_match_result = Mock()
+        mock_match_result.overall_score = 67
+        mock_match_result.score_breakdown = Mock()
+        mock_match_result.matched_required_skills = ["Python", "SQL"]
+        mock_match_result.missing_required_skills = ["AWS"]
+        mock_match_result.matched_preferred_skills = []
+        mock_match_result.missing_preferred_skills = ["Docker"]
+        mock_match_result.strengths = ["Python and SQL match"]
+        mock_match_result.gaps = ["Missing AWS and Docker"]
+        mock_match_result.status = "complete"
+        mock_calculate_match.return_value = mock_match_result
+        
+        # Mock AI insights service
+        mock_ai_service = Mock()
+        mock_ai_insights = Mock()
+        mock_ai_insights.status = "completed"
+        mock_ai_insights.summary = "Good match with some gaps"
+        mock_ai_insights.why_you_match = ["Python experience matches"]
+        mock_ai_insights.skill_gaps = []
+        mock_ai_insights.resume_improvements = []
+        mock_ai_insights.application_recommendation = Mock()
+        mock_ai_insights.application_recommendation.recommendation = "consider"
+        mock_ai_insights.application_recommendation.reason = "Some gaps"
+        mock_ai_insights.interview_focus = []
+        mock_ai_service.generate_insights_safe.return_value = mock_ai_insights
+        mock_ai_service_class.return_value = mock_ai_service
+        
+        # Mock LLM service
+        mock_llm_service = Mock()
+        mock_llm_service_class.return_value = mock_llm_service
+        
+        # Make request
+        response = client.post(
+            "/api/analysis",
+            files={"resume": ("test.pdf", b"%PDF-1.4\n%test", "application/pdf")},
+            data={"description": "Developer needed with Python and SQL"},
+        )
+        
+        # Verify response
+        assert response.status_code == 200
+        data = response.json()
+        
+        # Verify AnalysisResponse structure
+        assert "success" in data
+        assert "analysis_id" in data
+        assert "status" in data
+        assert "match" in data
+        assert "ai_insights" in data
+        
+        # Verify match data is present
+        assert data["match"]["overall_score"] == 67
+        assert "Python" in data["match"]["matched_required_skills"]
+        assert "AWS" in data["match"]["missing_required_skills"]
+        
+        # Verify AI insights are present
+        assert data["ai_insights"]["status"] == "completed"
+        assert "Good match with some gaps" in data["ai_insights"]["summary"]
+        
+        # Verify services were called
+        mock_extract_resume.assert_called_once()
+        mock_extract_job.assert_called_once()
+        mock_calculate_match.assert_called_once()
+        mock_ai_service.generate_insights_safe.assert_called_once()
+    
+    @patch('app.api.analysis.LLMService')
+    @patch('app.api.analysis.extract_resume_from_pdf')
+    @patch('app.api.analysis.extract_job_from_description')
+    @patch('app.api.analysis.calculate_match_result')
+    @patch('app.services.ai_insights_service.AIInsightsService')
+    def test_analysis_with_unavailable_ai_insights(
+        self,
+        mock_ai_service_class,
+        mock_calculate_match,
+        mock_extract_job,
+        mock_extract_resume,
+        mock_llm_service_class,
+        client
+    ):
+        """Test that analysis endpoint handles AI insights failure gracefully."""
+        # Mock resume extraction
+        mock_resume = Mock()
+        mock_extract_resume.return_value = mock_resume
+        
+        # Mock job extraction
+        mock_job = Mock()
+        mock_job.required_skills = []
+        mock_job.preferred_skills = []
+        mock_extract_job.return_value = mock_job
+        
+        # Mock match result
+        mock_match_result = Mock()
+        mock_match_result.overall_score = 50
+        mock_match_result.score_breakdown = Mock()
+        mock_match_result.matched_required_skills = []
+        mock_match_result.missing_required_skills = []
+        mock_match_result.matched_preferred_skills = []
+        mock_match_result.missing_preferred_skills = []
+        mock_match_result.strengths = []
+        mock_match_result.gaps = []
+        mock_match_result.status = "complete"
+        mock_calculate_match.return_value = mock_match_result
+        
+        # Mock AI insights service failure
+        mock_ai_service = Mock()
+        mock_ai_insights = Mock()
+        mock_ai_insights.status = "unavailable"
+        mock_ai_insights.summary = "AI insights are temporarily unavailable."
+        mock_ai_insights.why_you_match = []
+        mock_ai_insights.skill_gaps = []
+        mock_ai_insights.resume_improvements = []
+        mock_ai_insights.application_recommendation = Mock()
+        mock_ai_insights.application_recommendation.recommendation = "consider"
+        mock_ai_insights.application_recommendation.reason = "AI insights unavailable"
+        mock_ai_insights.interview_focus = []
+        mock_ai_service.generate_insights_safe.return_value = mock_ai_insights
+        mock_ai_service_class.return_value = mock_ai_service
+        
+        # Mock LLM service
+        mock_llm_service = Mock()
+        mock_llm_service_class.return_value = mock_llm_service
+        
+        # Make request
+        response = client.post(
+            "/api/analysis",
+            files={"resume": ("test.pdf", b"%PDF-1.4\n%test", "application/pdf")},
+            data={"description": "Test job"},
+        )
+        
+        # Verify response
+        assert response.status_code == 200
+        data = response.json()
+        
+        # Verify deterministic match still works
+        assert data["match"]["overall_score"] == 50
+        assert data["match"]["status"] == "complete"
+        
+        # Verify AI insights show as unavailable
+        assert data["ai_insights"]["status"] == "unavailable"
+        assert "unavailable" in data["ai_insights"]["summary"].lower()
+    
+    @patch('app.api.analysis.LLMService')
+    @patch('app.api.analysis.extract_resume_from_pdf')
+    @patch('app.api.analysis.extract_job_from_description')
+    @patch('app.api.analysis.calculate_match_result')
+    @patch('app.services.ai_insights_service.AIInsightsService')
+    def test_deterministic_match_preserved_when_ai_fails(
+        self,
+        mock_ai_service_class,
+        mock_calculate_match,
+        mock_extract_job,
+        mock_extract_resume,
+        mock_llm_service_class,
+        client
+    ):
+        """Test that deterministic match is unchanged when AI insights generation fails."""
+        # Mock resume extraction
+        mock_resume = Mock()
+        mock_extract_resume.return_value = mock_resume
+        
+        # Mock job extraction
+        mock_job = Mock()
+        mock_extract_job.return_value = mock_job
+        
+        # Mock match result with specific values
+        mock_match_result = Mock()
+        mock_match_result.overall_score = 82  # Specific score
+        mock_match_result.score_breakdown = Mock()
+        mock_match_result.matched_required_skills = ["Python", "SQL"]
+        mock_match_result.missing_required_skills = ["AWS"]
+        mock_match_result.matched_preferred_skills = ["Docker"]
+        mock_match_result.missing_preferred_skills = ["Kubernetes"]
+        mock_match_result.strengths = ["Strong Python skills"]
+        mock_match_result.gaps = ["Missing AWS"]
+        mock_match_result.status = "complete"
+        mock_calculate_match.return_value = mock_match_result
+        
+        # Mock AI insights service raising exception
+        mock_ai_service = Mock()
+        mock_ai_service.generate_insights_safe.side_effect = Exception("AI service down")
+        mock_ai_service_class.return_value = mock_ai_service
+        
+        # Mock LLM service
+        mock_llm_service = Mock()
+        mock_llm_service_class.return_value = mock_llm_service
+        
+        # Make request
+        response = client.post(
+            "/api/analysis",
+            files={"resume": ("test.pdf", b"%PDF-1.4\n%test", "application/pdf")},
+            data={"description": "Test job"},
+        )
+        
+        # Verify response
+        assert response.status_code == 200
+        data = response.json()
+        
+        # Verify deterministic match is preserved exactly
+        assert data["match"]["overall_score"] == 82
+        assert data["match"]["matched_required_skills"] == ["Python", "SQL"]
+        assert data["match"]["missing_required_skills"] == ["AWS"]
+        assert data["match"]["matched_preferred_skills"] == ["Docker"]
+        assert data["match"]["missing_preferred_skills"] == ["Kubernetes"]
+        assert data["match"]["strengths"] == ["Strong Python skills"]
+        assert data["match"]["gaps"] == ["Missing AWS"]
+        assert data["match"]["status"] == "complete"
+        
+        # Verify AI insights show failure but don't affect match
+        assert data["ai_insights"]["status"] == "unavailable"

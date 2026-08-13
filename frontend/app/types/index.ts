@@ -147,3 +147,9 @@ export interface ApplicationRecord {
   resume_filename: string;
   match_result: MatchResult;
 }
+
+/**
+ * AI Career Insights Types
+ * New types for the AI insights feature
+ */
+export * from "./analysis";

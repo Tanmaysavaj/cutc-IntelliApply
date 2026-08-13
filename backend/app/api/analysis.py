@@ -4,13 +4,16 @@ This endpoint analyzes job applications by:
 1. Accepting a resume PDF (required)
 2. Accepting processed job data (from /api/jobs endpoint, or raw job description)
 3. Performing deterministic skill matching and score calculation
-4. Returning comprehensive match analysis with strengths, gaps, and scores
+4. Generating AI career insights based on deterministic results
+5. Returning comprehensive analysis with both deterministic and AI insights
 
 Flow:
   POST /api/analysis
     ├─ Resume PDF → Extract resume data
     ├─ Job data (processed from /api/jobs OR raw description)
-    └─ Match analysis → Return scoring breakdown
+    ├─ Deterministic matching → MatchResult (source of truth)
+    ├─ AI insights generation → AIInsights (explanations & recommendations)
+    └─ Combined response → AnalysisResponse (match + ai_insights)
 """
 
 import json
@@ -33,8 +36,10 @@ from src.models.job import JobPosting as JobModel
 from src.services.llm_service import LLMService
 from app.services.pdf_service import PDFExtractor
 from app.services.matching_service import MatchingService
+from app.services.ai_insights_service import AIInsightsService
 from app.schemas.resume import ErrorResponse
 from app.schemas.matching import MatchResult
+from app.schemas.ai_insights import AnalysisResponse, AIInsights, ApplicationRecommendation
 
 # Configure logging - use stderr to avoid exposing sensitive data
 logger = logging.getLogger(__name__)
@@ -175,7 +180,7 @@ def calculate_match_result(resume: ResumeModel, job: JobModel) -> MatchResult:
 
 @router.post(
     "",
-    response_model=MatchResult,
+    response_model=AnalysisResponse,
     responses={
         200: {"description": "Analysis completed successfully"},
         400: {"description": "Invalid input - missing required fields"},
@@ -199,9 +204,9 @@ async def analyze_application(
     Processing flow:
     1. ✅ Extract resume data from PDF using LLM
     2. ✅ Extract or parse job data from provided sources
-    3. ✅ Perform deterministic skill matching and scoring
-    4. ✅ Calculate overall fit score and analysis
-    5. ✅ Return comprehensive match result with strengths and gaps
+    3. ✅ Perform deterministic skill matching and scoring (source of truth)
+    4. ✅ Generate AI career insights based on deterministic results
+    5. ✅ Return comprehensive analysis with both deterministic and AI insights
     
     Args:
         resume: PDF resume file (required)
@@ -209,7 +214,7 @@ async def analyze_application(
         job_description: Raw job description text (optional)
         
     Returns:
-        Complete match result with scores, matched/missing skills, strengths, and gaps
+        Complete analysis with deterministic match results and AI-generated insights
         
     Example:
         POST /api/analysis
@@ -224,25 +229,28 @@ async def analyze_application(
         
     Response:
         {
-          "overall_score": 85,
-          "score_breakdown": {
-            "required_skills": {
-              "score": 90,
-              "matched_skills": ["Python", "AWS", "Docker"],
-              "missing_skills": ["Kubernetes"]
-            },
-            ...
+          "success": true,
+          "analysis_id": "uuid",
+          "status": "completed",
+          "match": {
+            "overall_score": 85,
+            "score_breakdown": { ... },
+            "strengths": [...],
+            "gaps": [...],
+            "status": "complete"
           },
-          "strengths": [
-            "Matched 8 required skills: Python, AWS, Docker...",
-            "Experience level matches the job requirement",
-            ...
-          ],
-          "gaps": [
-            "Missing 2 required skills: Kubernetes, gRPC",
-            "Limited alignment with responsibilities"
-          ],
-          "status": "complete"
+          "ai_insights": {
+            "status": "completed",
+            "summary": "Strong alignment with core requirements...",
+            "why_you_match": [...],
+            "skill_gaps": [...],
+            "resume_improvements": [...],
+            "application_recommendation": {
+              "recommendation": "apply",
+              "reason": "Candidate meets most required technical requirements"
+            },
+            "interview_focus": [...]
+          }
         }
     """
     analysis_id = str(uuid.uuid4())
@@ -369,7 +377,46 @@ async def analyze_application(
                 match_result = calculate_match_result(resume_data, job_posting)
                 logger.info(f"Match result calculated for analysis {analysis_id}: score={match_result.overall_score}, status={match_result.status}")
                 
-                return match_result
+                # Generate AI insights based on deterministic match result
+                try:
+                    logger.info(f"Generating AI insights for analysis {analysis_id}")
+                    llm_service = LLMService()
+                    ai_insights_service = AIInsightsService(llm_service)
+                    
+                    # Use safe wrapper that never raises exceptions
+                    ai_insights = ai_insights_service.generate_insights_safe(
+                        resume_data, 
+                        job_posting, 
+                        match_result
+                    )
+                    
+                    logger.info(f"AI insights generated for analysis {analysis_id}: status={ai_insights.status}")
+                    
+                except Exception as e:
+                    logger.error(f"AI insights generation failed for analysis {analysis_id}: {str(e)}")
+                    # Fallback to unavailable insights - deterministic match still works
+                    ai_insights = AIInsights(
+                        status="unavailable",
+                        summary="AI insights are temporarily unavailable.",
+                        why_you_match=[],
+                        skill_gaps=[],
+                        resume_improvements=[],
+                        application_recommendation=ApplicationRecommendation(
+                            recommendation="consider",
+                            reason="Unable to generate AI insights. Please rely on the deterministic match results.",
+                        ),
+                        interview_focus=[],
+                        reason=f"AI insights generation failed: {str(e)[:100]}",
+                    )
+                
+                # Return combined analysis response
+                return AnalysisResponse(
+                    success=True,
+                    analysis_id=analysis_id,
+                    status="completed",
+                    match=match_result,
+                    ai_insights=ai_insights,
+                )
                 
             except Exception as e:
                 logger.error(f"Match calculation failed for analysis {analysis_id}: {str(e)}")

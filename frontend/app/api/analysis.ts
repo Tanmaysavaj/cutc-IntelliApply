@@ -4,7 +4,7 @@
  */
 
 import { apiClient } from './client';
-import { MatchResult, AnalysisResponse } from '@/app/types';
+import { AnalysisResponse } from '@/app/types';
 
 interface AnalyzeApplicationInput {
   resume: File;
@@ -20,7 +20,7 @@ export const analysisAPI = {
    * @param description - Optional job description text
    * @returns Match result with scoring and recommendations
    */
-  async analyzeApplication(input: AnalyzeApplicationInput): Promise<MatchResult> {
+  async analyzeApplication(input: AnalyzeApplicationInput): Promise<AnalysisResponse> {
     const formData = new FormData();
     formData.append('resume', input.resume);
 

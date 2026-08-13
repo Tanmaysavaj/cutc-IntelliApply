@@ -2,8 +2,8 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { uploadResume, type ResumeResponse, type ResumeData } from "@/lib/api";
-import { saveResume, loadResume, saveJob, loadJob, clearAllData, saveResumeFile, loadResumeFile } from "@/lib/storage";
-import type { StoredJobData } from "@/lib/storage";
+import { saveResume, loadResume, saveJob, loadJob, clearAllData, saveResumeFile, loadResumeFile, saveLastAnalysis, loadLastAnalysis, addToHistory, getHistory } from "@/lib/storage";
+import type { StoredJobData, AnalysisHistoryEntry } from "@/lib/storage";
 
 type Page = "landing" | "resume" | "jobs" | "analysis" | "history";
 const Icon = ({ children }: { children: React.ReactNode }) => <span className="icon" aria-hidden="true">{children}</span>;
@@ -27,7 +27,10 @@ export default function Home() {
   const [resumeData, setResumeData] = useState<ResumeData | null>(null);
   const [fileName, setFileName] = useState<string>("");
   const [resumeFile, setResumeFile] = useState<File | null>(null);
-  const [analysisResult, setAnalysisResult] = useState<any>(null);
+  const [analysisResult, setAnalysisResult] = useState<any>(() => {
+    if (typeof window === 'undefined') return null;
+    return loadLastAnalysis();
+  });
   const fileRef = useRef<HTMLInputElement>(null);
   
   // Load persisted data on mount
@@ -108,6 +111,8 @@ export default function Home() {
   const startAnalysis = () => {
     if (!uploaded) { notify("Upload your resume before starting an analysis"); setPage("resume"); return; }
     if (!processedJobData) { notify("Extract a job before analyzing"); setPage("jobs"); return; }
+    // Clear cached result to trigger fresh analysis
+    setAnalysisResult(null);
     setPage("analysis");
   };
   const shell = page !== "landing";
@@ -119,8 +124,8 @@ export default function Home() {
         {page === "landing" && <Landing uploaded={uploaded} hasAnalysis={hasAnalysis} onStart={() => fileRef.current?.click()} onNext={() => setPage(uploaded ? "jobs" : "resume")} onAnalysis={() => setPage("analysis")} onDemo={() => { setPage("resume"); setDemoStep(0); }} />}
         {page === "resume" && <ResumePage uploaded={uploaded} parsing={parsing} resumeData={resumeData} fileName={fileName} onUpload={() => fileRef.current?.click()} goToJobs={() => setPage("jobs")} />}
         {page === "jobs" && <JobsPage jobUrl={jobUrl} setJobUrl={setJobUrl} setJobSource={setJobSource} processedJobData={processedJobData} setProcessedJobData={setProcessedJobData} startAnalysis={startAnalysis} notify={notify} setPage={setPage} />}
-        {page === "analysis" && <AnalysisPage hasAnalysis={hasAnalysis} resumeData={resumeData} jobData={processedJobData} startAnalysis={() => setPage("jobs")} notify={notify} resumeFile={resumeFile} setHasAnalysis={setHasAnalysis} />}
-        {page === "history" && <HistoryPage hasAnalysis={hasAnalysis} jobSource={jobSource} setPage={setPage} />}
+        {page === "analysis" && <AnalysisPage hasAnalysis={hasAnalysis} resumeData={resumeData} jobData={processedJobData} startAnalysis={() => setPage("jobs")} notify={notify} resumeFile={resumeFile} setHasAnalysis={setHasAnalysis} analysisResult={analysisResult} setAnalysisResult={setAnalysisResult} />}
+        {page === "history" && <HistoryPage hasAnalysis={hasAnalysis} jobSource={jobSource} setPage={setPage} analysisResult={analysisResult} />}
       </div>
     </section>
     <input ref={fileRef} className="sr-only" type="file" accept="application/pdf" onChange={handleUpload} />
@@ -457,14 +462,13 @@ function JobsPage({ jobUrl, setJobUrl, setJobSource, processedJobData, setProces
   </>; 
 }
 
-function AnalysisPage({ hasAnalysis, resumeData, jobData, startAnalysis, notify, resumeFile, setHasAnalysis }: { hasAnalysis: boolean; resumeData: ResumeData | null; jobData: any; startAnalysis: () => void; notify: (v: string) => void; resumeFile: File | null; setHasAnalysis: (v: boolean) => void }) { 
-  const [analysisData, setAnalysisData] = useState<any>(null);
+function AnalysisPage({ hasAnalysis, resumeData, jobData, startAnalysis, notify, resumeFile, setHasAnalysis, analysisResult, setAnalysisResult }: { hasAnalysis: boolean; resumeData: ResumeData | null; jobData: any; startAnalysis: () => void; notify: (v: string) => void; resumeFile: File | null; setHasAnalysis: (v: boolean) => void; analysisResult: any; setAnalysisResult: (v: any) => void }) { 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
-  // Auto-run analysis when page loads with job data
+  // Auto-run analysis ONLY if we have job data but no cached result
   useEffect(() => {
-    if (jobData && !analysisData && !loading && !error) {
+    if (jobData && !analysisResult && !loading && !error) {
       runRealAnalysis();
     }
   }, [jobData]);
@@ -507,15 +511,42 @@ function AnalysisPage({ hasAnalysis, resumeData, jobData, startAnalysis, notify,
       }
       
       if (result && 'success' in result && result.success) {
-        setAnalysisData(result);
+        setAnalysisResult(result);
+        saveLastAnalysis(result);
         setHasAnalysis(true);
+        // Add to history
+        const jobInfo = jobData.data || jobData;
+        addToHistory({
+          id: result.analysis_id || Date.now().toString(),
+          date: new Date().toISOString(),
+          job_title: jobInfo.job_title || 'Unknown',
+          company_name: jobInfo.company_name || 'Unknown',
+          location: jobInfo.location || '',
+          overall_score: result.match?.overall_score || 0,
+          recommendation: result.ai_insights?.application_recommendation?.recommendation || 'review',
+          analysisData: result,
+          jobData: jobInfo,
+        });
         notify("✓ Analysis complete!");
       } else if (result && 'error' in result) {
         setError(result.error || "Analysis failed");
       } else {
         // The backend may return the analysis directly without a success wrapper
-        setAnalysisData(result);
+        setAnalysisResult(result);
+        saveLastAnalysis(result);
         setHasAnalysis(true);
+        const jobInfo = jobData.data || jobData;
+        addToHistory({
+          id: Date.now().toString(),
+          date: new Date().toISOString(),
+          job_title: jobInfo.job_title || 'Unknown',
+          company_name: jobInfo.company_name || 'Unknown',
+          location: jobInfo.location || '',
+          overall_score: result?.match?.overall_score || 0,
+          recommendation: result?.ai_insights?.application_recommendation?.recommendation || 'review',
+          analysisData: result,
+          jobData: jobInfo,
+        });
         notify("✓ Analysis complete!");
       }
     } catch (err) {
@@ -570,8 +601,8 @@ function AnalysisPage({ hasAnalysis, resumeData, jobData, startAnalysis, notify,
   const location = jobInfo.location || "Remote";
   
   // Extract analysis results
-  const match = analysisData?.match;
-  const aiInsights = analysisData?.ai_insights;
+  const match = analysisResult?.match;
+  const aiInsights = analysisResult?.ai_insights;
   const overallScore = match?.overall_score || 0;
   const strengths = match?.strengths || [];
   const gaps = match?.gaps || [];
@@ -755,7 +786,36 @@ function AnalysisPage({ hasAnalysis, resumeData, jobData, startAnalysis, notify,
   </>; 
 }
 
-function HistoryPage({ hasAnalysis, jobSource, setPage }: { hasAnalysis: boolean; jobSource: {kind:string;value:string}; setPage: (p:Page) => void }) { const [detail, setDetail] = useState<"job"|"resume"|"analysis"|null>(null); const [downloadNote,setDownloadNote]=useState(false); return <><PageHeader title="Application History" subtitle="Reopen the job details, resume, and analysis used for every match." />{hasAnalysis ? <Card className="history-table"><div className="history-head"><span>Date</span><span>Job details</span><span>Resume</span><span>Analysis</span></div><div className="history-row"><span><strong>Today</strong><small>Prototype record</small></span><button onClick={() => setDetail("job")}><b>{jobSource.kind}</b><small>Open details →</small></button><button onClick={() => setDetail("resume")}><b>Candidate_Resume.pdf</b><small>View or download →</small></button><button onClick={() => setDetail("analysis")}><b className="history-score">82% match</b><small>Open full analysis →</small></button></div></Card> : <Card className="history-empty"><span>◷</span><h2>No application history yet</h2><p>Your first record will be created after you upload a resume, add a job, and complete an analysis.</p><button className="btn primary" onClick={() => setPage("resume")}>Start With Your Resume</button></Card>}{detail && <div className="detail-overlay" role="dialog" aria-modal="true" aria-label="History details"><div className="detail-modal"><button className="demo-close" onClick={() => {setDetail(null);setDownloadNote(false)}} aria-label="Close details">×</button>{detail === "job" && <><div className="detail-icon">▣</div><h2>{jobSource.kind}</h2>{jobSource.kind === "Job URL" ? <a className="job-link" href={jobSource.value} target="_blank" rel="noreferrer">{jobSource.value}</a> : <div className="description-box">{jobSource.value}</div>}<p className="muted">This is the exact source used for this analysis.</p></>}{detail === "resume" && <><div className="detail-icon">PDF</div><h2>Candidate_Resume.pdf</h2><p className="muted">The resume connected to this match analysis.</p><div className="detail-actions"><button className="btn secondary" onClick={() => {setDetail(null);setPage("resume")}}>View Resume</button><button className="btn primary" onClick={() => setDownloadNote(true)}>Download Resume</button></div>{downloadNote && <div className="download-note">The download control is ready; the backend will connect it to the stored original PDF.</div>}</>}{detail === "analysis" && <><div className="detail-icon">82%</div><h2>Business Systems Analyst</h2><p>Overall prototype match: <strong className="success">82% — Apply</strong></p><div className="detail-summary"><span><b>Strengths</b>Requirements, SQL, Jira</span><span><b>Gaps</b>API documentation, cloud</span></div><button className="btn primary" onClick={() => {setDetail(null);setPage("analysis")}}>View Full Analysis</button></>}</div></div>}</>; }
+function HistoryPage({ hasAnalysis, jobSource, setPage, analysisResult }: { hasAnalysis: boolean; jobSource: {kind:string;value:string}; setPage: (p:Page) => void; analysisResult: any }) { 
+  const history = getHistory();
+  const currentScore = analysisResult?.match?.overall_score;
+  
+  if (history.length === 0) return <>
+    <PageHeader title="Application History" subtitle="Your analysis history will appear here after completing a match analysis." />
+    <Card className="history-empty"><span>◷</span><h2>No application history yet</h2><p>Your first record will be created after you upload a resume, add a job, and complete an analysis.</p><button className="btn primary" onClick={() => setPage("resume")}>Start With Your Resume</button></Card>
+  </>;
+  
+  return <>
+    <PageHeader title="Application History" subtitle={`${history.length} analysis record${history.length > 1 ? 's' : ''} saved locally.`} />
+    <Card className="history-table">
+      <div className="history-head"><span>Date</span><span>Job</span><span>Score</span><span>Action</span></div>
+      {history.map((entry, i) => {
+        const date = new Date(entry.date);
+        const dateStr = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        const scoreColor = entry.overall_score >= 70 ? 'var(--green)' : entry.overall_score >= 40 ? 'var(--orange)' : 'var(--primary)';
+        const recLabel = entry.recommendation === 'apply' ? 'Apply' : entry.recommendation === 'consider' ? 'Consider' : 'Review';
+        return (
+          <div className="history-row" key={entry.id || i}>
+            <span><strong>{dateStr}</strong><small>{date.toLocaleTimeString('en-US', {hour: '2-digit', minute: '2-digit'})}</small></span>
+            <span><strong>{entry.job_title}</strong><small>{entry.company_name}{entry.location ? ` · ${entry.location}` : ''}</small></span>
+            <span><b style={{color: scoreColor, fontSize:'18px'}}>{entry.overall_score}%</b><small style={{color: scoreColor}}>{recLabel}</small></span>
+            <button className="btn secondary compact-btn" onClick={() => setPage("analysis")}>View →</button>
+          </div>
+        );
+      })}
+    </Card>
+  </>;
+}
 
 function PageHeader({ title, subtitle, children }: { title: string; subtitle: string; children?: React.ReactNode }) { return <div className="page-header"><div><h1>{title}</h1><p>{subtitle}</p></div>{children}</div>; }
 function Card({ children, className = "" }: { children: React.ReactNode; className?: string }) { return <section className={`card ${className}`}>{children}</section>; }

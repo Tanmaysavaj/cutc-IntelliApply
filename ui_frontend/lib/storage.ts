@@ -221,6 +221,80 @@ export async function loadResumeFile(): Promise<File | null> {
   });
 }
 
+// ============ ANALYSIS HISTORY ============
+
+const STORAGE_KEYS_ANALYSIS = {
+  LAST_ANALYSIS: 'intelliapply_last_analysis',
+  HISTORY: 'intelliapply_analysis_history',
+};
+
+export interface AnalysisHistoryEntry {
+  id: string;
+  date: string;
+  job_title: string;
+  company_name: string;
+  location: string;
+  overall_score: number;
+  recommendation: string;
+  analysisData: any;
+  jobData: any;
+}
+
+/**
+ * Save the last analysis result (for caching when navigating between tabs)
+ */
+export function saveLastAnalysis(data: any): void {
+  try {
+    localStorage.setItem(STORAGE_KEYS_ANALYSIS.LAST_ANALYSIS, JSON.stringify(data));
+    console.log('✓ Last analysis cached');
+  } catch (error) {
+    console.error('Failed to cache analysis:', error);
+  }
+}
+
+/**
+ * Load the last analysis result
+ */
+export function loadLastAnalysis(): any | null {
+  try {
+    const stored = localStorage.getItem(STORAGE_KEYS_ANALYSIS.LAST_ANALYSIS);
+    if (!stored) return null;
+    return JSON.parse(stored);
+  } catch (error) {
+    return null;
+  }
+}
+
+/**
+ * Save analysis to history (keeps last 10 entries)
+ */
+export function addToHistory(entry: AnalysisHistoryEntry): void {
+  try {
+    const history = getHistory();
+    // Add new entry at the beginning
+    history.unshift(entry);
+    // Keep only last 10
+    const trimmed = history.slice(0, 10);
+    localStorage.setItem(STORAGE_KEYS_ANALYSIS.HISTORY, JSON.stringify(trimmed));
+    console.log('✓ Analysis added to history');
+  } catch (error) {
+    console.error('Failed to save to history:', error);
+  }
+}
+
+/**
+ * Get analysis history (last 10 entries)
+ */
+export function getHistory(): AnalysisHistoryEntry[] {
+  try {
+    const stored = localStorage.getItem(STORAGE_KEYS_ANALYSIS.HISTORY);
+    if (!stored) return [];
+    return JSON.parse(stored);
+  } catch (error) {
+    return [];
+  }
+}
+
 /**
  * Import data from JSON (for restore)
  */

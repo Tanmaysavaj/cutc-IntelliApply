@@ -2,6 +2,8 @@
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
+
 
 # Initialize FastAPI application
 app = FastAPI(
@@ -12,6 +14,9 @@ app = FastAPI(
     redoc_url="/api/redoc",
 )
 
+class HealthResponse(BaseModel):
+    status: str
+    service: str
 # Enable CORS for local frontend development
 app.add_middleware(
     CORSMiddleware,
@@ -27,10 +32,13 @@ app.add_middleware(
 )
 
 
-@app.get("/api/health", tags=["Health"])
-async def health_check():
-    """Health check endpoint for the API."""
-    return {"status": "ok", "service": "intelliapply-api"}
+@app.get("/api/health", response_model=HealthResponse, tags=["Health"])
+def health_check():
+    return HealthResponse(
+        status="ok",
+        service="intelliapply-api",
+    )
+    
 
 
 @app.get("/", tags=["Root"])

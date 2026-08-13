@@ -608,15 +608,19 @@ function AnalysisPage({ hasAnalysis, resumeData, jobData, startAnalysis, notify,
       <Card className="score-breakdown">
         <h3>Score Breakdown</h3>
         <div className="breakdown-grid">
-          {Object.entries(scoreBreakdown).map(([key, value]) => (
-            <div key={key} className="breakdown-item">
-              <span className="breakdown-label">{key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}</span>
-              <div className="breakdown-bar">
-                <div className="breakdown-fill" style={{width: `${value as number}%`}}></div>
+          {Object.entries(scoreBreakdown).map(([key, value]) => {
+            // Handle both simple numbers and objects with score property
+            const score = typeof value === 'number' ? value : (value as any)?.score ?? 0;
+            return (
+              <div key={key} className="breakdown-item">
+                <span className="breakdown-label">{key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}</span>
+                <div className="breakdown-bar">
+                  <div className="breakdown-fill" style={{width: `${score}%`}}></div>
+                </div>
+                <span className="breakdown-value">{score}%</span>
               </div>
-              <span className="breakdown-value">{value as number}%</span>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </Card>
     )}
@@ -643,8 +647,8 @@ function AnalysisPage({ hasAnalysis, resumeData, jobData, startAnalysis, notify,
       {/* Top Strengths */}
       {strengths.length > 0 && (
         <InfoCard title="Top Strengths" icon="☆">
-          {strengths.slice(0, 5).map((s: string) => (
-            <Metric key={s} label={s} value="Strong" />
+          {strengths.slice(0, 5).map((s: any, i: number) => (
+            <Metric key={i} label={typeof s === 'string' ? s : (s?.skill || s?.name || JSON.stringify(s))} value="Strong" />
           ))}
         </InfoCard>
       )}
@@ -652,8 +656,8 @@ function AnalysisPage({ hasAnalysis, resumeData, jobData, startAnalysis, notify,
       {/* Skill Gaps */}
       {gaps.length > 0 && (
         <InfoCard title="Skill Gaps" icon="△">
-          {gaps.slice(0, 5).map((g: string) => (
-            <Metric key={g} label={g} value="Gap" warning />
+          {gaps.slice(0, 5).map((g: any, i: number) => (
+            <Metric key={i} label={typeof g === 'string' ? g : (g?.skill || g?.name || JSON.stringify(g))} value="Gap" warning />
           ))}
         </InfoCard>
       )}

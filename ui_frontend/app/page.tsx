@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { uploadResume, type ResumeResponse, type ResumeData } from "@/lib/api";
 
 type Page = "landing" | "resume" | "jobs" | "analysis" | "history";
 const Icon = ({ children }: { children: React.ReactNode }) => <span className="icon" aria-hidden="true">{children}</span>;
@@ -20,11 +21,55 @@ export default function Home() {
   const [jobUrl, setJobUrl] = useState("");
   const [jobSource, setJobSource] = useState({ kind: "Job URL", value: "https://example.com/jobs/business-systems-analyst" });
   const [toast, setToast] = useState("");
+  const [resumeData, setResumeData] = useState<ResumeData | null>(null);
+  const [fileName, setFileName] = useState<string>("");
   const fileRef = useRef<HTMLInputElement>(null);
   useEffect(() => { document.documentElement.dataset.theme = theme; }, [theme]);
   const toggleTheme = () => { const next = theme === "light" ? "dark" : "light"; setTheme(next); document.documentElement.dataset.theme = next; localStorage.setItem("intelliapply-theme", next); };
   const notify = (message: string) => { setToast(message); window.setTimeout(() => setToast(""), 2600); };
-  const handleUpload = () => { setParsing(true); window.setTimeout(() => { setUploaded(true); setParsing(false); setPage("resume"); notify("Resume parsed successfully"); }, 1400); };
+  
+  const handleUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    if (!file.name.toLowerCase().endsWith('.pdf')) {
+      notify("Please upload a PDF file");
+      return;
+    }
+
+    // Validate file size (10MB limit)
+    if (file.size > 10 * 1024 * 1024) {
+      notify("File too large. Maximum size is 10MB");
+      return;
+    }
+
+    setFileName(file.name);
+    setParsing(true);
+
+    try {
+      const response = await uploadResume(file);
+      
+      if (response.success && response.data) {
+        setResumeData(response.data);
+        setUploaded(true);
+        setPage("resume");
+        notify("Resume parsed successfully!");
+      } else {
+        throw new Error("Failed to process resume");
+      }
+    } catch (error) {
+      console.error("Upload error:", error);
+      notify(error instanceof Error ? error.message : "Failed to upload resume");
+    } finally {
+      setParsing(false);
+      // Reset file input
+      if (event.target) {
+        event.target.value = "";
+      }
+    }
+  };
+
   const startAnalysis = () => {
     if (!uploaded) { notify("Upload your resume before starting an analysis"); setPage("resume"); return; }
     setAnalyzing(true); window.setTimeout(() => { setHasAnalysis(true); setAnalyzing(false); setPage("analysis"); }, 1800);
@@ -36,9 +81,9 @@ export default function Home() {
       <Topbar page={page} setPage={setPage} theme={theme} toggleTheme={toggleTheme} />
       <div className={shell ? "page-wrap" : "landing-wrap"}>
         {page === "landing" && <Landing uploaded={uploaded} hasAnalysis={hasAnalysis} onStart={() => fileRef.current?.click()} onNext={() => setPage(uploaded ? "jobs" : "resume")} onAnalysis={() => setPage("analysis")} onDemo={() => { setPage("resume"); setDemoStep(0); }} />}
-        {page === "resume" && <ResumePage uploaded={uploaded} parsing={parsing} onUpload={() => fileRef.current?.click()} goToJobs={() => setPage("jobs")} />}
+        {page === "resume" && <ResumePage uploaded={uploaded} parsing={parsing} resumeData={resumeData} fileName={fileName} onUpload={() => fileRef.current?.click()} goToJobs={() => setPage("jobs")} />}
         {page === "jobs" && <JobsPage jobUrl={jobUrl} setJobUrl={setJobUrl} setJobSource={setJobSource} startAnalysis={startAnalysis} notify={notify} />}
-        {page === "analysis" && <AnalysisPage hasAnalysis={hasAnalysis} startAnalysis={() => setPage("jobs")} notify={notify} />}
+        {page === "analysis" && <AnalysisPage hasAnalysis={hasAnalysis} resumeData={resumeData} startAnalysis={() => setPage("jobs")} notify={notify} />}
         {page === "history" && <HistoryPage hasAnalysis={hasAnalysis} jobSource={jobSource} setPage={setPage} />}
       </div>
     </section>
@@ -57,11 +102,89 @@ function Sidebar({ page, setPage }: { page: Page; setPage: (p: Page) => void }) 
 
 function Landing({ uploaded, hasAnalysis, onStart, onNext, onAnalysis, onDemo }: { uploaded:boolean; hasAnalysis:boolean; onStart: () => void; onNext: () => void; onAnalysis: () => void; onDemo: () => void }) { return <div className="hero"><div className="hero-copy"><div className="eyebrow"><span>✦</span> AI-powered career intelligence</div><h1>Turn Every Job Into a <em>Smarter Application</em></h1><p>Upload your resume, compare it with a job, and get clear strengths, gaps, and practical advice.</p><div className="hero-actions">{uploaded ? <button className="btn primary" onClick={onNext}>＋ Add Your Job Details</button> : <button className="btn primary" onClick={onStart}>⇧ Upload Resume</button>}<button className="btn secondary" onClick={onDemo}>▷ View Demo</button>{hasAnalysis && <button className="btn secondary" onClick={onAnalysis}>View Latest Analysis</button>}</div><div className="trust-row"><span>✓ Private by design</span><span>✓ Clear match scoring</span><span>✓ Actionable advice</span></div></div><div className="match-visual" aria-label="Resume and job match visualization"><div className="orbit one" /><div className="orbit two" /><div className={`score-ring ${hasAnalysis ? "complete" : "pending"}`}><strong>{hasAnalysis ? "82%" : "—"}</strong><span>{hasAnalysis ? "Latest match" : "Your match"}</span></div><div className="mini-card resume-card"><span className="card-kicker">▤ YOUR RESUME</span><strong>{uploaded ? "Resume Ready" : "Candidate Profile"}</strong><p>Skills · Experience · Education</p><div className="mini-tags"><i>Reusable</i><i>Structured</i></div></div><div className="mini-card job-card"><span className="card-kicker">▣ JOB DETAILS</span><strong>Selected Opportunity</strong><p>URL or pasted description</p><div className="mini-tags"><i>Requirements</i><i>Skills</i></div></div><div className="insight-card"><span><b>Match strengths</b><small>{hasAnalysis ? "Requirements · SQL" : "Shown after analysis"}</small></span><span><b>Skill gaps</b><small>{hasAnalysis ? "Cloud fundamentals" : "Shown after analysis"}</small></span></div></div></div>; }
 
-function ResumePage({ uploaded, parsing, onUpload, goToJobs }: { uploaded: boolean; parsing: boolean; onUpload: () => void; goToJobs: () => void }) { return <><PageHeader title="Your Resume" subtitle="We structure your resume to power smarter job matches." />{uploaded ? <><Card className="resume-ready"><div className="file-summary"><div className="pdf-icon">PDF</div><div><strong>Candidate_Resume.pdf</strong><p className="success">✓ Successfully uploaded and parsed</p></div></div><div className="resume-ready-actions"><button className="btn secondary compact-btn" onClick={onUpload}>Replace Resume</button><button className="btn primary" onClick={goToJobs}>Continue to Add Job →</button></div></Card><div className="next-step-banner"><span>2</span><div><strong>Your resume is ready. Now add the job you want to compare.</strong><p>Paste a job link or description, then IntelliApply can prepare a match analysis.</p></div><button className="btn primary compact-btn" onClick={goToJobs}>Add Job Details</button></div><div className="profile-stack"><InfoSection icon="◎" title="Professional Summary"><p>Detail-oriented technology professional with experience in requirements analysis, stakeholder collaboration, data reporting, and software development. Skilled at translating business needs into clear, practical solutions.</p></InfoSection><InfoSection icon="⌘" title="Skills"><div className="skill-chips">{["TypeScript", "React", "Python", "FastAPI", "SQL", "Power BI", "Jira", "Confluence"].map(s => <span key={s}>{s}</span>)}</div></InfoSection><InfoSection icon="▣" title="Experience"><Timeline title="Business Analyst Co-op" meta="Public Sector Technology · 2026" text="Gathered requirements, maintained delivery trackers, created reporting dashboards, and supported stakeholder updates." /><Timeline title="Software Development Intern" meta="Technology Team · 2025" text="Built responsive interfaces, integrated APIs, and collaborated on testing and documentation." /></InfoSection><InfoSection icon="◇" title="Education"><strong>Honours Bachelor of Technology – Software Development</strong><p>Seneca Polytechnic · Toronto, Ontario</p></InfoSection></div></> : <Card className="single-upload"><span>⇧</span><h2>{parsing ? "Processing your resume…" : "Upload your resume"}</h2><p>Choose one PDF resume to create your candidate profile.</p><button className="btn primary" onClick={onUpload}>Browse Resume PDF</button><small>PDF format only, up to 10MB</small></Card>}</>; }
+function ResumePage({ uploaded, parsing, resumeData, fileName, onUpload, goToJobs }: { uploaded: boolean; parsing: boolean; resumeData: ResumeData | null; fileName: string; onUpload: () => void; goToJobs: () => void }) { 
+  const skills = resumeData?.data?.hard_skills?.slice(0, 8) || [];
+  const workExperience = resumeData?.data?.work_experience || [];
+  const education = resumeData?.data?.education || [];
+  
+  return <><PageHeader title="Your Resume" subtitle="We structure your resume to power smarter job matches." />{uploaded ? <><Card className="resume-ready"><div className="file-summary"><div className="pdf-icon">PDF</div><div><strong>{fileName || "Candidate_Resume.pdf"}</strong><p className="success">✓ Successfully uploaded and parsed</p><small>Processed at: {resumeData?.extracted_at ? new Date(resumeData.extracted_at).toLocaleString() : 'Just now'}</small></div></div><div className="resume-ready-actions"><button className="btn secondary compact-btn" onClick={onUpload}>Replace Resume</button><button className="btn primary" onClick={goToJobs}>Continue to Add Job →</button></div></Card><div className="next-step-banner"><span>2</span><div><strong>Your resume is ready. Now add the job you want to compare.</strong><p>Paste a job link or description, then IntelliApply can prepare a match analysis.</p></div><button className="btn primary compact-btn" onClick={goToJobs}>Add Job Details</button></div><div className="profile-stack">
+    <InfoSection icon="◎" title="Professional Summary">
+      <p>Your resume has been successfully processed. Key skills and experience have been extracted for job matching.</p>
+      {resumeData?.data?.keywords && resumeData.data.keywords.length > 0 && (
+        <div className="mt-3">
+          <p className="text-sm text-gray-600">Key themes: {resumeData.data.keywords.join(", ")}</p>
+        </div>
+      )}
+    </InfoSection>
+    
+    <InfoSection icon="⌘" title="Skills">
+      <div className="skill-chips">
+        {skills.length > 0 ? skills.map(s => <span key={s}>{s}</span>) : 
+          <p className="text-gray-500">No skills extracted from resume</p>}
+      </div>
+      {resumeData?.data?.soft_skills && resumeData.data.soft_skills.length > 0 && (
+        <div className="mt-4">
+          <p className="font-medium mb-2">Soft Skills:</p>
+          <div className="skill-chips">
+            {resumeData.data.soft_skills.slice(0, 5).map(s => <span key={s} className="bg-blue-50 text-blue-700">{s}</span>)}
+          </div>
+        </div>
+      )}
+    </InfoSection>
+    
+    <InfoSection icon="▣" title="Experience">
+      {workExperience.length > 0 ? (
+        workExperience.slice(0, 2).map((exp, index) => (
+          <Timeline 
+            key={index}
+            title={exp.role || "Position"}
+            meta={`${exp.company || "Company"} · ${exp.duration || "Duration"}`}
+            text={exp.responsibilities.length > 0 ? exp.responsibilities.join(". ") : "Responsibilities extracted from resume"}
+          />
+        ))
+      ) : (
+        <p className="text-gray-500">No work experience extracted from resume</p>
+      )}
+    </InfoSection>
+    
+    <InfoSection icon="◇" title="Education">
+      {education.length > 0 ? (
+        <>
+          {education.map((edu, index) => (
+            <div key={index} className="mb-3">
+              <strong>{edu.degree || "Degree"}</strong>
+              <p>{edu.institution || "Institution"}</p>
+            </div>
+          ))}
+        </>
+      ) : (
+        <p className="text-gray-500">No education information extracted from resume</p>
+      )}
+    </InfoSection>
+    
+    {(resumeData?.data?.certifications && resumeData.data.certifications.length > 0) && (
+      <InfoSection icon="★" title="Certifications">
+        <div className="skill-chips">
+          {resumeData.data.certifications.map(cert => <span key={cert}>{cert}</span>)}
+        </div>
+      </InfoSection>
+    )}
+    
+    {(resumeData?.data?.projects && resumeData.data.projects.length > 0) && (
+      <InfoSection icon="⚙️" title="Projects">
+        <ul className="list-disc pl-5 space-y-1">
+          {resumeData.data.projects.slice(0, 3).map((project, index) => (
+            <li key={index}>{project}</li>
+          ))}
+        </ul>
+      </InfoSection>
+    )}
+  </div></> : <Card className="single-upload"><span>⇧</span><h2>{parsing ? "Processing your resume…" : "Upload your resume"}</h2><p>Choose one PDF resume to create your candidate profile.</p><button className="btn primary" onClick={onUpload}>Browse Resume PDF</button><small>PDF format only, up to 10MB</small></Card>}</>; 
+}
 
 function JobsPage({ jobUrl, setJobUrl, setJobSource, startAnalysis, notify }: { jobUrl: string; setJobUrl: (v: string) => void; setJobSource: (v: {kind:string;value:string}) => void; startAnalysis: () => void; notify: (v: string) => void }) { const [tab, setTab] = useState<"url" | "text">("url"); const saveJob = () => { if (!jobUrl.trim()) { notify("Add a job URL or description first"); return; } setJobSource({kind:tab === "url" ? "Job URL" : "Pasted description",value:jobUrl.trim()}); notify("Job details saved"); }; return <><PageHeader title="Jobs" subtitle="Add a job URL or description, then compare it with your resume." /><Card className="job-entry"><div className="tabs"><button className={tab === "url" ? "active" : ""} onClick={() => setTab("url")}>Paste Job URL</button><button className={tab === "text" ? "active" : ""} onClick={() => setTab("text")}>Paste Description</button></div><div className="entry-row">{tab === "url" ? <input id="job-entry" value={jobUrl} onChange={e => setJobUrl(e.target.value)} placeholder="https://company.com/jobs/..." /> : <textarea id="job-entry" value={jobUrl} onChange={e => setJobUrl(e.target.value)} placeholder="Paste the full job description here…" />}<button className="btn primary" onClick={saveJob}>Save Job Details</button></div></Card><div className="first-job-callout"><span>1</span><div><strong>Prototype opportunity</strong><p>Use this sample job to test the match flow, or add your own details above.</p></div></div><Card className="jobs-table"><div className="job-head"><span>Opportunity</span><span>Location</span><span>Status</span><span>Action</span></div><JobRow title="Business Systems Analyst" company="Northstar Digital" location="Toronto, ON · Hybrid" status="Ready" startAnalysis={startAnalysis} /></Card></>; }
 
-function AnalysisPage({ hasAnalysis, startAnalysis, notify }: { hasAnalysis: boolean; startAnalysis: () => void; notify: (v: string) => void }) { const questions = useMemo(() => ["Walk me through a complex requirements-gathering process you led.", "How do you approach writing efficient SQL queries for reporting?", "Describe a time you improved a business process with stakeholders."], []); if (!hasAnalysis) return <><PageHeader title="Job Match Analysis" subtitle="Your match results will appear here after an analysis." /><Card className="analysis-empty"><div className="empty-illustration"><span>▤</span><i>＋</i><span>▣</span></div><h2>No analysis to display yet</h2><p>First upload your resume. Then add or select a job and click <strong>Analyze Match</strong>. The future backend will calculate the real score; this prototype displays a sample result only after that action.</p><div className="empty-steps"><span><b>1</b> Upload resume</span><span><b>2</b> Add a job</span><span><b>3</b> Analyze match</span></div><button className="btn primary" onClick={startAnalysis}>Choose a Job to Analyze</button></Card></>; return <><PageHeader title="Job Match Analysis" subtitle="Sample prototype result for the selected opportunity."><div className="header-actions"><button className="btn secondary small-btn" onClick={() => notify("Analysis saved")}>♡ Save Analysis</button><button className="btn primary small-btn" onClick={startAnalysis}>⌕ Analyze Another Job</button></div></PageHeader><div className="prototype-note">Prototype sample — the backend will replace this with a real resume-to-job analysis.</div><Card className="analysis-hero"><div className="candidate"><span className="avatar">CA</span><div><small>CANDIDATE PROFILE</small><strong>Your Resume</strong><span>Technology Professional</span></div></div><div className="analysis-score"><strong>82%</strong><span>Sample Match</span></div><div className="role"><div><small>JOB OPPORTUNITY</small><strong>Business Systems Analyst</strong><span>Northstar Digital · Toronto, ON</span></div><b>APPLY</b></div></Card><div className="analysis-grid"><InfoCard title="Why You Match" icon="✓"><p>Your background aligns strongly with requirements analysis, stakeholder collaboration, and data-driven problem solving. Your SQL and documentation experience are particularly relevant.</p></InfoCard><InfoCard title="Top Strengths" icon="☆"><Metric label="Requirements Analysis" value="Excellent" /><Metric label="SQL & Reporting" value="Strong" /><Metric label="Jira & Documentation" value="Strong" /></InfoCard><InfoCard title="Skill Gaps" icon="△"><Metric label="API Documentation" value="Moderate gap" warning /><Metric label="Cloud Fundamentals" value="Moderate gap" warning /></InfoCard><InfoCard title="Application Advice" icon="✎"><ul><li>Lead with requirements and documentation experience.</li><li>Quantify reporting and process improvements.</li><li>Highlight SQL and stakeholder-facing projects.</li></ul></InfoCard><InfoCard title="Interview Preparation" icon="◌">{questions.map((q, i) => <button className="question" key={q}><b>{i + 1}</b><span>{q}</span><i>›</i></button>)}</InfoCard><InfoCard title="Company Research" icon="▥"><div className="company-card"><span className="company-logo">✦</span><div><strong>Northstar Digital</strong><p className="success">● Research available</p></div></div><p>Review the company overview and recent priorities before tailoring your application.</p></InfoCard></div></>; }
+function AnalysisPage({ hasAnalysis, resumeData, startAnalysis, notify }: { hasAnalysis: boolean; resumeData: ResumeData | null; startAnalysis: () => void; notify: (v: string) => void }) { const questions = useMemo(() => ["Walk me through a complex requirements-gathering process you led.", "How do you approach writing efficient SQL queries for reporting?", "Describe a time you improved a business process with stakeholders."], []); if (!hasAnalysis) return <><PageHeader title="Job Match Analysis" subtitle="Your match results will appear here after an analysis." /><Card className="analysis-empty"><div className="empty-illustration"><span>▤</span><i>＋</i><span>▣</span></div><h2>No analysis to display yet</h2><p>First upload your resume to extract your skills and experience. Then add or select a job and click <strong>Analyze Match</strong>. The backend will calculate a real match score based on your actual resume data.</p><div className="empty-steps"><span><b>1</b> Upload resume</span><span><b>2</b> Add a job</span><span><b>3</b> Analyze match</span></div><button className="btn primary" onClick={startAnalysis}>Choose a Job to Analyze</button></Card></>; return <><PageHeader title="Job Match Analysis" subtitle="Sample prototype result for the selected opportunity."><div className="header-actions"><button className="btn secondary small-btn" onClick={() => notify("Analysis saved")}>♡ Save Analysis</button><button className="btn primary small-btn" onClick={startAnalysis}>⌕ Analyze Another Job</button></div></PageHeader><div className="prototype-note">Using real backend API for resume processing. Job analysis integration coming soon.</div><Card className="analysis-hero"><div className="candidate"><span className="avatar">CA</span><div><small>CANDIDATE PROFILE</small><strong>Your Resume</strong><span>Technology Professional</span></div></div><div className="analysis-score"><strong>82%</strong><span>Sample Match</span></div><div className="role"><div><small>JOB OPPORTUNITY</small><strong>Business Systems Analyst</strong><span>Northstar Digital · Toronto, ON</span></div><b>APPLY</b></div></Card><div className="analysis-grid"><InfoCard title="Why You Match" icon="✓"><p>Your background aligns strongly with requirements analysis, stakeholder collaboration, and data-driven problem solving. Your SQL and documentation experience are particularly relevant.</p></InfoCard><InfoCard title="Top Strengths" icon="☆"><Metric label="Requirements Analysis" value="Excellent" /><Metric label="SQL & Reporting" value="Strong" /><Metric label="Jira & Documentation" value="Strong" /></InfoCard><InfoCard title="Skill Gaps" icon="△"><Metric label="API Documentation" value="Moderate gap" warning /><Metric label="Cloud Fundamentals" value="Moderate gap" warning /></InfoCard><InfoCard title="Application Advice" icon="✎"><ul><li>Lead with requirements and documentation experience.</li><li>Quantify reporting and process improvements.</li><li>Highlight SQL and stakeholder-facing projects.</li></ul></InfoCard><InfoCard title="Interview Preparation" icon="◌">{questions.map((q, i) => <button className="question" key={q}><b>{i + 1}</b><span>{q}</span><i>›</i></button>)}</InfoCard><InfoCard title="Company Research" icon="▥"><div className="company-card"><span className="company-logo">✦</span><div><strong>Northstar Digital</strong><p className="success">● Research available</p></div></div><p>Review the company overview and recent priorities before tailoring your application.</p></InfoCard></div></>; }
 
 function HistoryPage({ hasAnalysis, jobSource, setPage }: { hasAnalysis: boolean; jobSource: {kind:string;value:string}; setPage: (p:Page) => void }) { const [detail, setDetail] = useState<"job"|"resume"|"analysis"|null>(null); const [downloadNote,setDownloadNote]=useState(false); return <><PageHeader title="Application History" subtitle="Reopen the job details, resume, and analysis used for every match." />{hasAnalysis ? <Card className="history-table"><div className="history-head"><span>Date</span><span>Job details</span><span>Resume</span><span>Analysis</span></div><div className="history-row"><span><strong>Today</strong><small>Prototype record</small></span><button onClick={() => setDetail("job")}><b>{jobSource.kind}</b><small>Open details →</small></button><button onClick={() => setDetail("resume")}><b>Candidate_Resume.pdf</b><small>View or download →</small></button><button onClick={() => setDetail("analysis")}><b className="history-score">82% match</b><small>Open full analysis →</small></button></div></Card> : <Card className="history-empty"><span>◷</span><h2>No application history yet</h2><p>Your first record will be created after you upload a resume, add a job, and complete an analysis.</p><button className="btn primary" onClick={() => setPage("resume")}>Start With Your Resume</button></Card>}{detail && <div className="detail-overlay" role="dialog" aria-modal="true" aria-label="History details"><div className="detail-modal"><button className="demo-close" onClick={() => {setDetail(null);setDownloadNote(false)}} aria-label="Close details">×</button>{detail === "job" && <><div className="detail-icon">▣</div><h2>{jobSource.kind}</h2>{jobSource.kind === "Job URL" ? <a className="job-link" href={jobSource.value} target="_blank" rel="noreferrer">{jobSource.value}</a> : <div className="description-box">{jobSource.value}</div>}<p className="muted">This is the exact source used for this analysis.</p></>}{detail === "resume" && <><div className="detail-icon">PDF</div><h2>Candidate_Resume.pdf</h2><p className="muted">The resume connected to this match analysis.</p><div className="detail-actions"><button className="btn secondary" onClick={() => {setDetail(null);setPage("resume")}}>View Resume</button><button className="btn primary" onClick={() => setDownloadNote(true)}>Download Resume</button></div>{downloadNote && <div className="download-note">The download control is ready; the backend will connect it to the stored original PDF.</div>}</>}{detail === "analysis" && <><div className="detail-icon">82%</div><h2>Business Systems Analyst</h2><p>Overall prototype match: <strong className="success">82% — Apply</strong></p><div className="detail-summary"><span><b>Strengths</b>Requirements, SQL, Jira</span><span><b>Gaps</b>API documentation, cloud</span></div><button className="btn primary" onClick={() => {setDetail(null);setPage("analysis")}}>View Full Analysis</button></>}</div></div>}</>; }
 

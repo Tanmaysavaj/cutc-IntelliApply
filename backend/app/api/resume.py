@@ -3,6 +3,7 @@
 import logging
 import tempfile
 import uuid
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Annotated
 
@@ -103,6 +104,7 @@ async def process_resume(resume: UploadFile = File(..., description="PDF resume 
         )
     
     # Save uploaded file to temporary location
+    temp_path = None
     try:
         with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as temp_file:
             temp_file.write(content)
@@ -151,13 +153,10 @@ async def process_resume(resume: UploadFile = File(..., description="PDF resume 
                 ).model_dump(),
             )
         
-        # Clean up temp file
-        try:
-            Path(temp_path).unlink()
-        except Exception:
-            pass  # Best effort cleanup
-        
         logger.info(f"Successfully processed resume {resume_id}")
+        
+        # Use actual UTC timestamp when processing completes
+        extracted_at = datetime.now(timezone.utc)
         
         return ResumeResponse(
             success=True,
@@ -166,7 +165,7 @@ async def process_resume(resume: UploadFile = File(..., description="PDF resume 
             data=ResumeResponseData(
                 resume_id=resume_id,
                 status="processed",
-                extracted_at=resume_data.work_experience[0].duration if resume_data.work_experience else None,
+                extracted_at=extracted_at,
                 data=resume_data
             )
         )
@@ -180,3 +179,10 @@ async def process_resume(resume: UploadFile = File(..., description="PDF resume 
                 resume_id=resume_id
             ).model_dump(),
         )
+    finally:
+        # Ensure temp file is always cleaned up
+        if temp_path is not None:
+            try:
+                Path(temp_path).unlink()
+            except Exception:
+                pass  # Best effort cleanup

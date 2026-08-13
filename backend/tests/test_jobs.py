@@ -1,5 +1,6 @@
 """Tests for the jobs API endpoint."""
 
+from unittest.mock import Mock, patch
 import sys
 from pathlib import Path
 
@@ -353,8 +354,16 @@ class TestJobsEndpoint:
         assert data["success"] is False
         assert ".pdf" in data["error"]
     
-    def test_corrupt_pdf_returns_500(self):
-        """Corrupt PDF should return 500 Internal Server Error."""
+    def test_corrupt_pdf_with_valid_description_uses_fallback(self):
+        """Corrupt PDF should NOT prevent job processing when valid description is provided.
+        
+        When PDF extraction fails but a valid job description is available,
+        the API should use the description as fallback and return 200 if
+        the job is successfully processed.
+        
+        This test mocks the LLM extraction to verify fallback behavior
+        without requiring a real OpenRouter API key.
+        """
         corrupt_pdf = (
             b"%PDF-1.4\n"
             b"This is not a valid PDF\n"
@@ -362,23 +371,54 @@ class TestJobsEndpoint:
             b"%\xFF\xFF\xFF\xFF"
         )
         
-        response = client.post(
-            "/api/jobs",
-            data={
-                "description": "Senior Software Engineer at TechCorp Inc. in San Francisco. We are looking for an experienced engineer with Python and JavaScript skills.",
-            },
-            files={
-                "resume": ("corrupt.pdf", corrupt_pdf, "application/pdf"),
-            },
+        # Import the JobPosting model to create a proper mock
+        from src.models.job import JobPosting
+        
+        # Create a proper JobPosting instance for the mock
+        mock_job_data = JobPosting(
+            job_title="Senior Software Engineer",
+            company_name="TechCorp Inc.",
+            company_website=None,
+            location="San Francisco, CA",
+            remote_status="Hybrid",
+            posting_age_days=None,
+            required_skills=["Python", "JavaScript"],
+            preferred_skills=[],
+            experience_level="5+ years",
+            education_requirements="BS in Computer Science",
+            salary_range="$150,000 - $200,000",
+            key_responsibilities=["Develop cloud applications", "Implement microservices"],
+            company_research={"summary": "Test company research"}
         )
         
+        with patch('app.api.jobs.JobExtractor') as MockExtractor:
+            mock_extractor = MockExtractor.return_value
+            mock_extractor.extract_job.return_value = mock_job_data
+            
+            with patch('app.api.jobs.TavilyExtractor') as MockTavily:
+                mock_tavily = MockTavily.return_value
+                mock_tavily.research_company.return_value = "Test company research"
+                
+                response = client.post(
+                    "/api/jobs",
+                    data={
+                        "description": "Senior Software Engineer at TechCorp Inc. in San Francisco. We are looking for an experienced engineer with Python and JavaScript skills.",
+                    },
+                    files={
+                        "resume": ("corrupt.pdf", corrupt_pdf, "application/pdf"),
+                    },
+                )
+        
         # The PDF fails to extract, so it falls back to description
-        # Then LLM extraction fails (no API key), returning 500 with extraction_failed status
-        assert response.status_code == 500
+        # With mocked successful extraction, the request should succeed (200)
+        assert response.status_code == 200
         data = response.json()
-        assert data["success"] is False
-        # The response should indicate extraction failed
-        assert data["status"] == "extraction_failed"
+        assert data["success"] is True
+        # The extraction metadata should indicate the source used
+        assert "extraction" in data
+        # The description fallback was used
+        assert data["extraction"]["source"] == "description"
+        assert data["extraction"]["method"] == "manual"
     
     def test_large_description_returns_422(self):
         """Excessively large description should return 422 Unprocessable Entity."""

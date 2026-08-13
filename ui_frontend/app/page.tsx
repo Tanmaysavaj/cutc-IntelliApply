@@ -658,30 +658,58 @@ function AnalysisPage({ hasAnalysis, resumeData, jobData, startAnalysis, notify,
         </Card>
       )}
       
-      {/* Skill Gaps */}
-      {gaps.length > 0 && (
+      {/* AI Skill Gaps (rich objects from AI insights) */}
+      {aiInsights?.skill_gaps && aiInsights.skill_gaps.length > 0 && (
         <Card className="analysis-card">
-          <h3><span className="card-icon orange">△</span> Skill Gaps</h3>
-          <div className="gap-items">
-            {gaps.slice(0, 6).map((g: any, i: number) => (
-              <div key={i} className="gap-item">
-                <span>● {typeof g === 'string' ? g : (g?.skill || g?.name || JSON.stringify(g))}</span>
-                <span className="gap-badge">Gap</span>
+          <h3><span className="card-icon orange">△</span> Skill Gaps (AI Analysis)</h3>
+          <div className="ai-skill-gaps">
+            {aiInsights.skill_gaps.map((gap: any, i: number) => (
+              <div key={i} className="ai-gap-item">
+                <div className="ai-gap-header">
+                  <span className="ai-gap-skill">{gap.skill || gap}</span>
+                  {gap.importance && (
+                    <span className={`ai-gap-importance ${gap.importance}`}>
+                      {gap.importance === 'required' ? '🔴 Required' : '🟡 Preferred'}
+                    </span>
+                  )}
+                </div>
+                {gap.reason && <p className="ai-gap-reason">{gap.reason}</p>}
+                {gap.recommendation && (
+                  <div className="ai-gap-rec">
+                    <span>💡</span>
+                    <span>{gap.recommendation}</span>
+                  </div>
+                )}
               </div>
             ))}
           </div>
         </Card>
       )}
       
-      {/* Top Strengths */}
+      {/* Deterministic Strengths (from match scoring) */}
       {strengths.length > 0 && (
         <Card className="analysis-card">
-          <h3><span className="card-icon green">☆</span> Top Strengths</h3>
+          <h3><span className="card-icon green">☆</span> Matched Skills</h3>
           <div className="strength-items">
-            {strengths.slice(0, 6).map((s: any, i: number) => (
+            {strengths.slice(0, 8).map((s: any, i: number) => (
               <div key={i} className="strength-item">
                 <span>✓ {typeof s === 'string' ? s : (s?.skill || s?.name || JSON.stringify(s))}</span>
-                <span className="strength-badge">Strong</span>
+                <span className="strength-badge">Match</span>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
+      
+      {/* Deterministic Gaps (from match scoring) */}
+      {gaps.length > 0 && (
+        <Card className="analysis-card">
+          <h3><span className="card-icon orange">⚡</span> Missing Skills</h3>
+          <div className="gap-items">
+            {gaps.slice(0, 8).map((g: any, i: number) => (
+              <div key={i} className="gap-item">
+                <span>● {typeof g === 'string' ? g : (g?.skill || g?.name || JSON.stringify(g))}</span>
+                <span className="gap-badge">Missing</span>
               </div>
             ))}
           </div>

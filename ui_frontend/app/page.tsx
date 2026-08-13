@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { uploadResume, type ResumeResponse, type ResumeData } from "@/lib/api";
-import { saveResume, loadResume, saveJob, loadJob, clearAllData } from "@/lib/storage";
+import { saveResume, loadResume, saveJob, loadJob, clearAllData, saveResumeFile, loadResumeFile } from "@/lib/storage";
 import type { StoredJobData } from "@/lib/storage";
 
 type Page = "landing" | "resume" | "jobs" | "analysis" | "history";
@@ -46,6 +46,14 @@ export default function Home() {
       setJobSource({ kind: storedJob.extraction_source, value: storedJob.source_value || '' });
       console.log('✓ Loaded job from storage');
     }
+    
+    // Load resume PDF file from IndexedDB
+    loadResumeFile().then(file => {
+      if (file) {
+        setResumeFile(file);
+        console.log('✓ Loaded resume PDF from IndexedDB');
+      }
+    });
   }, []);
   
   useEffect(() => { document.documentElement.dataset.theme = theme; }, [theme]);
@@ -70,6 +78,7 @@ export default function Home() {
 
     setFileName(file.name);
     setResumeFile(file);  // ← Store file for later analysis
+    saveResumeFile(file);  // ← Persist to IndexedDB for page refresh
     setParsing(true);
 
     try {

@@ -166,13 +166,59 @@ export function getStorageStats(): {
 }
 
 /**
- * Export all data as JSON (for backup/download)
+ * Save resume PDF file to IndexedDB for persistence across refreshes
  */
-export function exportAllData(): { resume: ResumeData | null; job: StoredJobData | null } {
-  return {
-    resume: loadResume(),
-    job: loadJob(),
-  };
+export async function saveResumeFile(file: File): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open('intelliapply_db', 1);
+    request.onupgradeneeded = () => {
+      const db = request.result;
+      if (!db.objectStoreNames.contains('files')) {
+        db.createObjectStore('files');
+      }
+    };
+    request.onsuccess = () => {
+      const db = request.result;
+      const tx = db.transaction('files', 'readwrite');
+      const store = tx.objectStore('files');
+      store.put(file, 'resume_pdf');
+      tx.oncomplete = () => { console.log('✓ Resume PDF saved to IndexedDB'); resolve(); };
+      tx.onerror = () => reject(tx.error);
+    };
+    request.onerror = () => reject(request.error);
+  });
+}
+
+/**
+ * Load resume PDF file from IndexedDB
+ */
+export async function loadResumeFile(): Promise<File | null> {
+  return new Promise((resolve) => {
+    const request = indexedDB.open('intelliapply_db', 1);
+    request.onupgradeneeded = () => {
+      const db = request.result;
+      if (!db.objectStoreNames.contains('files')) {
+        db.createObjectStore('files');
+      }
+    };
+    request.onsuccess = () => {
+      const db = request.result;
+      const tx = db.transaction('files', 'readonly');
+      const store = tx.objectStore('files');
+      const getRequest = store.get('resume_pdf');
+      getRequest.onsuccess = () => {
+        const file = getRequest.result;
+        if (file) {
+          console.log('✓ Resume PDF loaded from IndexedDB');
+          resolve(file as File);
+        } else {
+          resolve(null);
+        }
+      };
+      getRequest.onerror = () => resolve(null);
+    };
+    request.onerror = () => resolve(null);
+  });
 }
 
 /**

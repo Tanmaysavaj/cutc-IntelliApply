@@ -8,3 +8,4 @@ __pycache__/
 .kiro/
 backend/__pycache__/
 backend/.env
+src/services/__pycache__/tavily_service.*

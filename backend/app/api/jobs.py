@@ -217,6 +217,39 @@ async def process_job(
                     job_id=job_id
                 ).model_dump(),
             )
+        
+        # Process resume PDF and extract text (if provided)
+        # Save to temp file and extract text
+        import tempfile
+        from pathlib import Path
+        
+        temp_resume_path = None
+        resume_text = None
+        try:
+            with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as temp_file:
+                temp_file.write(resume_content)
+                temp_resume_path = temp_file.name
+            
+            logger.info(f"Processing resume for job {job_id}")
+            
+            # Extract text from PDF using PDFExtractor
+            from app.services.pdf_service import PDFExtractor
+            pdf_extractor = PDFExtractor()
+            resume_text = pdf_extractor.extract_text(temp_resume_path)
+            
+            if resume_text and resume_text.strip():
+                logger.info(f"Extracted {len(resume_text)} characters from resume for {job_id}")
+            else:
+                logger.warning(f"No text extracted from resume for {job_id}")
+                
+        except Exception as e:
+            logger.error(f"Resume processing failed for {job_id}: {str(e)}")
+        finally:
+            if temp_resume_path is not None:
+                try:
+                    Path(temp_resume_path).unlink()
+                except Exception:
+                    pass
     
     try:
         # Priority 1: Try URL first if provided
@@ -351,6 +384,17 @@ async def process_job(
         # Use actual UTC timestamp when processing completes
         processed_at = datetime.now(timezone.utc)
         
+        # Prepare resume data if extracted
+        resume_data = None
+        if resume_text and resume_text.strip():
+            try:
+                from app.services.llm_service import ResumeExtractor
+                resume_extractor = ResumeExtractor()
+                resume_data = resume_extractor.extract_resume(resume_text).model_dump()
+                logger.info(f"Successfully processed resume for {job_id}")
+            except Exception as e:
+                logger.error(f"Resume LLM extraction failed for {job_id}: {str(e)}")
+        
         return JobResponseSuccess(
             success=True,
             job_id=job_id,
@@ -365,7 +409,8 @@ async def process_job(
                 job_id=job_id,
                 status="processed",
                 processed_at=processed_at,
-                data=job_data
+                data=job_data,
+                resume=resume_data
             )
         )
         

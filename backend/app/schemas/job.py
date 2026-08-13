@@ -36,6 +36,10 @@ class JobResponseSuccessData(BaseModel):
     status: str
     processed_at: datetime
     data: JobPostingModel
+    resume: Optional[dict] = Field(
+        default=None,
+        description="Extracted resume data if resume PDF was provided"
+    )
 
 
 class JobResponseSuccess(BaseModel):

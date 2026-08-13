@@ -1,0 +1,21 @@
+# FastAPI and Server
+fastapi==0.115.8
+uvicorn[standard]==0.34.0
+
+# Environment variables
+python-dotenv==1.0.1
+
+# Pydantic for data validation
+pydantic==2.10.6
+
+# File uploads
+python-multipart==0.0.20
+
+# Existing CLI dependencies (for reuse)
+openai
+pymupdf
+tavily-python
+python-whois
+
+# UUID support
+uuid==1.30

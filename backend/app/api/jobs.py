@@ -3,9 +3,11 @@
 import logging
 import tempfile
 import uuid
+import re
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Annotated, Optional
+from urllib.parse import urlparse, parse_qs
 
 from fastapi import APIRouter, File, Form, UploadFile
 from fastapi.responses import JSONResponse
@@ -42,6 +44,121 @@ MAX_FILE_SIZE = 10 * 1024 * 1024  # 10 MB
 MAX_URL_CONTENT_SIZE = 5 * 1024 * 1024  # 5 MB
 
 
+class ExtractionValidationError(Exception):
+    """Raised when extracted job data fails validation checks."""
+    pass
+
+
+def normalize_linkedin_url(url: str) -> str:
+    """
+    Normalize LinkedIn URLs to access direct job postings.
+    
+    Handles two cases:
+    1. Search results URL with currentJobId parameter:
+       https://www.linkedin.com/jobs/search/?currentJobId=4453319631&...
+       → https://www.linkedin.com/jobs/view/4453319631/
+    
+    2. Direct job view URL (already normalized):
+       https://www.linkedin.com/jobs/view/4453319631/
+       → returns as-is
+    
+    Args:
+        url: LinkedIn URL to normalize
+        
+    Returns:
+        Normalized URL pointing to the actual job posting
+    """
+    if not url or "linkedin.com" not in url.lower():
+        return url
+    
+    try:
+        parsed = urlparse(url)
+        
+        # Check if this is a search-results URL with currentJobId
+        if "/jobs/search" in parsed.path or "/jobs/search-results" in parsed.path:
+            query_params = parse_qs(parsed.query)
+            
+            # Extract currentJobId if present
+            if "currentJobId" in query_params:
+                job_ids = query_params["currentJobId"]
+                if job_ids and job_ids[0]:
+                    current_job_id = job_ids[0]
+                    # Construct direct job view URL
+                    normalized_url = f"https://www.linkedin.com/jobs/view/{current_job_id}/"
+                    logger.info(f"Normalized LinkedIn search URL to direct job URL: {normalized_url}")
+                    return normalized_url
+        
+        # If already a direct view URL, return as-is
+        if "/jobs/view/" in parsed.path:
+            logger.info(f"LinkedIn URL already points to direct job view")
+            return url
+        
+        logger.warning(f"Could not normalize LinkedIn URL: {url}")
+        return url
+        
+    except Exception as e:
+        logger.warning(f"Error normalizing LinkedIn URL: {e}")
+        return url
+
+
+def validate_job_extraction(job_data: JobModel, scraped_text: str) -> None:
+    """
+    Validate that job extraction was successful and meaningful.
+    
+    Raises ExtractionValidationError if:
+    - job_title is missing or null
+    - company_name is missing, null, or generic (e.g., "LinkedIn", "Indeed", etc.)
+    - key_responsibilities is empty
+    - required_skills is empty
+    - scraped_text is too short (indicates page scraping failure)
+    
+    Args:
+        job_data: Extracted JobPosting model
+        scraped_text: Original scraped text content
+        
+    Raises:
+        ExtractionValidationError: If validation fails
+    """
+    validation_errors = []
+    
+    # Generic job platform names that indicate page shell scraping
+    GENERIC_COMPANY_NAMES = {
+        "linkedin", "linkedin jobs", "job search", "jobs", "job board", "jobs board",
+        "indeed", "indeed.com", "glassdoor", "glassdoor.com", 
+        "jobvite", "lever", "ashby", "greenhouse", "workday",
+        "jobs page", "career page", "careers", "career opportunities"
+    }
+    
+    # Check job title
+    if not job_data.job_title or job_data.job_title == "null" or not str(job_data.job_title).strip():
+        validation_errors.append("job_title is missing or null")
+    
+    # Check company name
+    if not job_data.company_name or job_data.company_name == "null":
+        validation_errors.append("company_name is missing or null")
+    elif job_data.company_name.lower() in GENERIC_COMPANY_NAMES:
+        validation_errors.append(f"company_name is generic/placeholder: '{job_data.company_name}' (indicates page shell was scraped, not actual job)")
+    
+    # Check responsibilities
+    if not job_data.key_responsibilities or len(job_data.key_responsibilities) == 0:
+        validation_errors.append("key_responsibilities is empty (no job details extracted)")
+    
+    # Check required skills
+    if not job_data.required_skills or len(job_data.required_skills) == 0:
+        validation_errors.append("required_skills is empty (no job details extracted)")
+    
+    # Check scraped text quality
+    if len(scraped_text.strip()) < 200:
+        validation_errors.append(f"scraped_text is too short ({len(scraped_text)} chars) - may indicate page shell rather than actual job posting")
+    
+    if validation_errors:
+        error_msg = "Job extraction validation failed: " + "; ".join(validation_errors)
+        logger.error(error_msg)
+        raise ExtractionValidationError(error_msg)
+    
+    logger.info(f"Job extraction validation passed for '{job_data.job_title}' at '{job_data.company_name}'")
+
+
 def extract_job_from_text(job_text: str) -> JobModel:
     """Extract structured job data from text using existing LLMService.
     
@@ -53,16 +170,24 @@ def extract_job_from_text(job_text: str) -> JobModel:
         
     Raises:
         RuntimeError: If extraction fails
+        ExtractionValidationError: If validation fails
     """
     # Import here to avoid circular imports
     from src.services.llm_service import LLMService
     
     extractor = LLMService()
-    return extractor.extract_job(job_text)
+    job_data = extractor.extract_job(job_text)
+    
+    # Validate the extraction
+    validate_job_extraction(job_data, job_text)
+    
+    return job_data
 
 
 def fetch_url_content(url: str) -> Optional[str]:
     """Fetch and extract text content from a URL.
+    
+    For LinkedIn URLs, normalizes search result URLs to direct job URLs.
     
     Args:
         url: URL to fetch
@@ -71,11 +196,18 @@ def fetch_url_content(url: str) -> Optional[str]:
         Extracted text content or None if fetching/parsing fails
     """
     try:
+        # Normalize LinkedIn URLs if applicable
+        if "linkedin.com" in url.lower():
+            url = normalize_linkedin_url(url)
+            logger.info(f"Using normalized URL: {url}")
+        
         logger.info(f"Fetching URL: {url}")
         
         # Fetch with timeout and size limit
         response = requests.get(url, timeout=10, stream=True)
         response.raise_for_status()
+        
+        logger.info(f"HTTP {response.status_code} from {url}")
         
         # Check content length before consuming
         if response.headers.get('content-length'):
@@ -114,6 +246,7 @@ def fetch_url_content(url: str) -> Optional[str]:
             
             if extracted_text.strip():
                 logger.info(f"Successfully extracted {len(extracted_text)} characters from URL")
+                logger.debug(f"Extracted text preview (first 500 chars): {extracted_text[:500]}")
                 return extracted_text
             
         except Exception as e:
@@ -239,6 +372,16 @@ async def process_job(
             logger.info(f"Successfully extracted job description from URL for job {job_id}")
         else:
             logger.warning(f"Could not extract content from URL for job {job_id}")
+            # If URL fails and no description is available, fail
+            if not description:
+                logger.warning(f"URL extraction failed and no fallback description available for job {job_id}")
+                return JSONResponse(
+                    status_code=422,
+                    content=ErrorResponse(
+                        error="Could not extract job information from URL. Verify the URL is valid and publicly accessible.",
+                        resume_id=job_id
+                    ).model_dump(),
+                )
     
     # Validate that we have job text to extract
     if not job_text:
@@ -257,6 +400,35 @@ async def process_job(
         # Extract structured job data using LLM
         try:
             job_data = extract_job_from_text(job_text)
+        except ExtractionValidationError as e:
+            logger.warning(f"Job extraction validation failed for job {job_id}: {str(e)}")
+            
+            # If validation failed and we came from URL, try falling back to description if available
+            if extraction_source == "url" and description:
+                logger.info(f"URL extraction validation failed, attempting fallback to provided description for job {job_id}")
+                try:
+                    job_text = description.strip()
+                    job_data = extract_job_from_text(job_text)
+                    extraction_source = "description"
+                    logger.info(f"Fallback to description succeeded for job {job_id}")
+                except Exception as fallback_error:
+                    logger.error(f"Fallback to description also failed for job {job_id}: {str(fallback_error)}")
+                    return JSONResponse(
+                        status_code=422,
+                        content=ErrorResponse(
+                            error=f"Job extraction failed: {str(e)}. URL contained insufficient job details, and fallback extraction also failed.",
+                            resume_id=job_id
+                        ).model_dump(),
+                    )
+            else:
+                # No fallback available
+                return JSONResponse(
+                    status_code=422,
+                    content=ErrorResponse(
+                        error=f"Job extraction validation failed: {str(e)}. The URL or content does not contain sufficient job details.",
+                        resume_id=job_id
+                    ).model_dump(),
+                )
         except Exception as e:
             logger.error(f"Job extraction failed for job {job_id}: {str(e)}")
             return JSONResponse(

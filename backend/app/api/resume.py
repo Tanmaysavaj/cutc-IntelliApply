@@ -5,7 +5,7 @@ import tempfile
 import uuid
 from pathlib import Path
 from typing import Annotated
-
+from datetime import datetime, timezone
 from fastapi import APIRouter, File, HTTPException, UploadFile
 from fastapi.responses import JSONResponse
 
@@ -166,7 +166,7 @@ async def process_resume(resume: UploadFile = File(..., description="PDF resume 
             data=ResumeResponseData(
                 resume_id=resume_id,
                 status="processed",
-                extracted_at=resume_data.work_experience[0].duration if resume_data.work_experience else None,
+                extracted_at=datetime.now(timezone.utc),
                 data=resume_data
             )
         )

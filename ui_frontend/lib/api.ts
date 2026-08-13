@@ -108,7 +108,7 @@ export async function uploadResume(file: File): Promise<ResumeResponse> {
  * Process a job posting from text description
  * Priority: 1 (highest)
  */
-export async function processJobFromDescription(description: string): Promise<JobProcessingResponse> {
+export async function processJobFromDescription(description: string): Promise<JobProcessingResponse | ErrorResponse> {
   const formData = new FormData();
   formData.append('description', description);
 
@@ -117,19 +117,17 @@ export async function processJobFromDescription(description: string): Promise<Jo
     body: formData,
   });
 
-  if (!response.ok) {
-    const errorData: ErrorResponse = await response.json();
-    throw new Error(errorData.error || `Job processing failed with status ${response.status}`);
-  }
-
-  return response.json();
+  const data = await response.json();
+  
+  // Return data as-is (success or error) - let caller handle both
+  return data;
 }
 
 /**
  * Process a job posting from a PDF file
  * Priority: 2 (medium)
  */
-export async function processJobFromPDF(file: File): Promise<JobProcessingResponse> {
+export async function processJobFromPDF(file: File): Promise<JobProcessingResponse | ErrorResponse> {
   const formData = new FormData();
   formData.append('job_description_pdf', file);
 
@@ -138,12 +136,10 @@ export async function processJobFromPDF(file: File): Promise<JobProcessingRespon
     body: formData,
   });
 
-  if (!response.ok) {
-    const errorData: ErrorResponse = await response.json();
-    throw new Error(errorData.error || `Job processing failed with status ${response.status}`);
-  }
-
-  return response.json();
+  const data = await response.json();
+  
+  // Return data as-is (success or error) - let caller handle both
+  return data;
 }
 
 /**
@@ -151,7 +147,7 @@ export async function processJobFromPDF(file: File): Promise<JobProcessingRespon
  * Priority: 3 (lowest)
  * Supports LinkedIn URLs with automatic normalization
  */
-export async function processJobFromURL(url: string): Promise<JobProcessingResponse> {
+export async function processJobFromURL(url: string): Promise<JobProcessingResponse | ErrorResponse> {
   const formData = new FormData();
   formData.append('url', url);
 
@@ -160,12 +156,10 @@ export async function processJobFromURL(url: string): Promise<JobProcessingRespo
     body: formData,
   });
 
-  if (!response.ok) {
-    const errorData: ErrorResponse = await response.json();
-    throw new Error(errorData.error || `Job processing failed with status ${response.status}`);
-  }
-
-  return response.json();
+  const data = await response.json();
+  
+  // Return data as-is (success or error) - let caller handle both
+  return data;
 }
 
 /**
@@ -176,7 +170,7 @@ export async function processJobWithFallback(
   description?: string,
   pdfFile?: File,
   url?: string
-): Promise<JobProcessingResponse> {
+): Promise<JobProcessingResponse | ErrorResponse> {
   const formData = new FormData();
   
   if (description) {
@@ -194,12 +188,10 @@ export async function processJobWithFallback(
     body: formData,
   });
 
-  if (!response.ok) {
-    const errorData: ErrorResponse = await response.json();
-    throw new Error(errorData.error || `Job processing failed with status ${response.status}`);
-  }
-
-  return response.json();
+  const data = await response.json();
+  
+  // Return data as-is (success or error) - let caller handle both
+  return data;
 }
 
 /**

@@ -228,14 +228,18 @@ function JobsPage({ jobUrl, setJobUrl, setJobSource, processedJobData, setProces
       
       if (response.success && response.data) {
         setProcessedJobData(response.data.data);
-        notify("Job details extracted and saved!");
+        notify("✓ Job extracted successfully!");
         setJobUrl("");
       } else {
-        notify("Failed to process job details");
+        // Handle error response from backend
+        const errorMsg = response.error || "Failed to extract job details";
+        notify(`❌ ${errorMsg}`);
+        console.error("Job extraction error:", response);
       }
     } catch (error) {
       console.error("Job processing error:", error);
-      notify(error instanceof Error ? error.message : "Failed to process job");
+      const errorMsg = error instanceof Error ? error.message : "Failed to process job";
+      notify(`❌ ${errorMsg}`);
     } finally {
       setProcessing(false);
     }
@@ -262,13 +266,17 @@ function JobsPage({ jobUrl, setJobUrl, setJobSource, processedJobData, setProces
       if (response.success && response.data) {
         setProcessedJobData(response.data.data);
         setJobSource({kind: "Job Description PDF", value: file.name});
-        notify("Job PDF processed successfully!");
+        notify("✓ PDF processed successfully!");
       } else {
-        notify("Failed to process job PDF");
+        // Handle error response from backend
+        const errorMsg = response.error || "Failed to process PDF";
+        notify(`❌ ${errorMsg}`);
+        console.error("PDF processing error:", response);
       }
     } catch (error) {
       console.error("PDF processing error:", error);
-      notify(error instanceof Error ? error.message : "Failed to process PDF");
+      const errorMsg = error instanceof Error ? error.message : "Failed to process PDF";
+      notify(`❌ ${errorMsg}`);
     } finally {
       setProcessing(false);
       if (event.target) {
@@ -371,11 +379,15 @@ function JobsPage({ jobUrl, setJobUrl, setJobSource, processedJobData, setProces
       </Card>
     )}
     
-    <div className="first-job-callout"><span>1</span><div><strong>Prototype opportunity</strong><p>Use this sample job to test the match flow, or add your own details above.</p></div></div>
-    <Card className="jobs-table">
-      <div className="job-head"><span>Opportunity</span><span>Location</span><span>Status</span><span>Action</span></div>
-      <JobRow title="Business Systems Analyst" company="Northstar Digital" location="Toronto, ON · Hybrid" status="Ready" startAnalysis={startAnalysis} />
-    </Card>
+    {!processedJobData && (
+      <>
+        <div className="first-job-callout"><span>1</span><div><strong>Prototype opportunity</strong><p>Use this sample job to test the match flow, or add your own details above.</p></div></div>
+        <Card className="jobs-table">
+          <div className="job-head"><span>Opportunity</span><span>Location</span><span>Status</span><span>Action</span></div>
+          <JobRow title="Business Systems Analyst" company="Northstar Digital" location="Toronto, ON · Hybrid" status="Ready" startAnalysis={startAnalysis} />
+        </Card>
+      </>
+    )}
   </>; 
 }
 

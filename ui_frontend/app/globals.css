@@ -26,3 +26,18 @@
 .score-ring.pending{background:var(--line)}.download-note{margin-top:15px;padding:12px 14px;border-radius:9px;background:var(--surface-2);color:var(--muted);font-size:13px}
 @media(max-height:780px) and (min-width:761px){.landing-wrap{padding-left:55px;padding-right:55px}.hero{min-height:calc(100svh - 76px)}.hero h1{font-size:clamp(45px,4.7vw,66px);margin:18px 0}.hero-copy>p{font-size:18px;line-height:1.5}.hero-actions{margin:24px 0}.match-visual{height:560px;transform:scale(.92)}}
 @media(max-width:760px){.landing-wrap{padding:22px}.hero{min-height:auto}.top-nav button{padding:0}.history-head{display:none}.history-row{grid-template-columns:1fr}.history-row>span,.history-row button{width:100%}.detail-summary{grid-template-columns:1fr}}
+
+
+/* Loading bar for analysis */
+.loading-bar{height:6px;background:var(--line);border-radius:10px;overflow:hidden;margin-top:24px;width:280px;margin-left:auto;margin-right:auto}.loading-progress{display:block;height:100%;width:40%;background:linear-gradient(90deg,var(--primary),var(--primary-2));border-radius:10px;animation:load 1.4s ease-in-out infinite}
+
+/* Score breakdown section */
+.score-breakdown{margin-top:16px}.score-breakdown h3{margin:0 0 16px;font-size:17px;font-weight:760}.breakdown-grid{display:flex;flex-direction:column;gap:12px}.breakdown-item{display:grid;grid-template-columns:140px 1fr 50px;gap:12px;align-items:center;font-size:13px}.breakdown-label{text-transform:capitalize;font-weight:600;color:var(--text)}.breakdown-bar{height:8px;background:var(--line);border-radius:10px;overflow:hidden}.breakdown-fill{height:100%;background:linear-gradient(90deg,var(--primary),var(--primary-2));border-radius:10px;transition:width .6s ease}.breakdown-value{font-weight:700;color:var(--primary);text-align:right}
+
+/* Processed job card in Jobs page */
+.processed-job{margin-top:16px}.job-result h3{margin:0 0 6px;font-size:22px}.job-result .company{color:var(--muted);margin:0 0 8px}.job-result .location,.job-result .remote{color:var(--muted);margin:4px 0;font-size:14px}.job-skills{margin:14px 0}.job-skills h4,.job-responsibilities h4{margin:0 0 8px;font-size:14px;font-weight:700;color:var(--text)}.job-responsibilities ul{padding-left:20px;color:var(--muted);font-size:14px;line-height:1.7}.job-result .btn{margin-top:16px}
+
+/* Analysis page warning/success states */
+.role>b.warning{color:var(--orange);border:1px solid var(--orange);background:color-mix(in srgb,var(--orange) 9%,var(--surface));padding:16px 24px;border-radius:10px}
+
+@media(max-width:760px){.breakdown-item{grid-template-columns:1fr;gap:4px}.breakdown-bar{margin-top:4px}}

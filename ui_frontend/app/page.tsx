@@ -26,6 +26,8 @@ export default function Home() {
   const [toast, setToast] = useState("");
   const [resumeData, setResumeData] = useState<ResumeData | null>(null);
   const [fileName, setFileName] = useState<string>("");
+  const [resumeFile, setResumeFile] = useState<File | null>(null);
+  const [analysisResult, setAnalysisResult] = useState<any>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   
   // Load persisted data on mount
@@ -67,6 +69,7 @@ export default function Home() {
     }
 
     setFileName(file.name);
+    setResumeFile(file);  // ← Store file for later analysis
     setParsing(true);
 
     try {
@@ -96,7 +99,7 @@ export default function Home() {
   const startAnalysis = () => {
     if (!uploaded) { notify("Upload your resume before starting an analysis"); setPage("resume"); return; }
     if (!processedJobData) { notify("Extract a job before analyzing"); setPage("jobs"); return; }
-    setAnalyzing(true); window.setTimeout(() => { setHasAnalysis(true); setAnalyzing(false); setPage("analysis"); }, 1800);
+    setPage("analysis");
   };
   const shell = page !== "landing";
   return <main className={shell ? "app-shell" : "landing-shell"}>
@@ -106,8 +109,8 @@ export default function Home() {
       <div className={shell ? "page-wrap" : "landing-wrap"}>
         {page === "landing" && <Landing uploaded={uploaded} hasAnalysis={hasAnalysis} onStart={() => fileRef.current?.click()} onNext={() => setPage(uploaded ? "jobs" : "resume")} onAnalysis={() => setPage("analysis")} onDemo={() => { setPage("resume"); setDemoStep(0); }} />}
         {page === "resume" && <ResumePage uploaded={uploaded} parsing={parsing} resumeData={resumeData} fileName={fileName} onUpload={() => fileRef.current?.click()} goToJobs={() => setPage("jobs")} />}
-        {page === "jobs" && <JobsPage jobUrl={jobUrl} setJobUrl={setJobUrl} setJobSource={setJobSource} processedJobData={processedJobData} setProcessedJobData={setProcessedJobData} startAnalysis={startAnalysis} notify={notify} />}
-        {page === "analysis" && <AnalysisPage hasAnalysis={hasAnalysis} resumeData={resumeData} jobData={processedJobData} startAnalysis={() => setPage("jobs")} notify={notify} />}
+        {page === "jobs" && <JobsPage jobUrl={jobUrl} setJobUrl={setJobUrl} setJobSource={setJobSource} processedJobData={processedJobData} setProcessedJobData={setProcessedJobData} startAnalysis={startAnalysis} notify={notify} setPage={setPage} />}
+        {page === "analysis" && <AnalysisPage hasAnalysis={hasAnalysis} resumeData={resumeData} jobData={processedJobData} startAnalysis={() => setPage("jobs")} notify={notify} resumeFile={resumeFile} setHasAnalysis={setHasAnalysis} />}
         {page === "history" && <HistoryPage hasAnalysis={hasAnalysis} jobSource={jobSource} setPage={setPage} />}
       </div>
     </section>
@@ -206,7 +209,7 @@ function ResumePage({ uploaded, parsing, resumeData, fileName, onUpload, goToJob
   </div></> : <Card className="single-upload"><span>⇧</span><h2>{parsing ? "Processing your resume…" : "Upload your resume"}</h2><p>Choose one PDF resume to create your candidate profile.</p><button className="btn primary" onClick={onUpload}>Browse Resume PDF</button><small>PDF format only, up to 10MB</small></Card>}</>; 
 }
 
-function JobsPage({ jobUrl, setJobUrl, setJobSource, processedJobData, setProcessedJobData, startAnalysis, notify }: { jobUrl: string; setJobUrl: (v: string) => void; setJobSource: (v: {kind:string;value:string}) => void; processedJobData: any; setProcessedJobData: (v: any) => void; startAnalysis: () => void; notify: (v: string) => void }) { 
+function JobsPage({ jobUrl, setJobUrl, setJobSource, processedJobData, setProcessedJobData, startAnalysis, notify, setPage }: { jobUrl: string; setJobUrl: (v: string) => void; setJobSource: (v: {kind:string;value:string}) => void; processedJobData: any; setProcessedJobData: (v: any) => void; startAnalysis: () => void; notify: (v: string) => void; setPage: (p: Page) => void }) { 
   const [tab, setTab] = useState<"url" | "text" | "pdf">("url");
   const [processing, setProcessing] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -266,8 +269,7 @@ function JobsPage({ jobUrl, setJobUrl, setJobSource, processedJobData, setProces
         
         // ← Auto-redirect to analysis page after 1.5 seconds
         setTimeout(() => {
-          // Navigate to analysis page - the stored data will be loaded via useEffect
-          window.location.href = '/?page=analysis';
+          startAnalysis();
         }, 1500);
       } else {
         // Handle error response from backend
@@ -320,7 +322,7 @@ function JobsPage({ jobUrl, setJobUrl, setJobSource, processedJobData, setProces
         
         // ← Auto-redirect to analysis page after 1.5 seconds
         setTimeout(() => {
-          window.location.href = '/?page=analysis';
+          startAnalysis();
         }, 1500);
       } else {
         // Handle error response from backend
@@ -399,30 +401,30 @@ function JobsPage({ jobUrl, setJobUrl, setJobSource, processedJobData, setProces
       </div>
     </Card>
     
-    {processedJobData && processedJobData.data && (
+    {processedJobData && (
       <Card className="processed-job">
         <div className="job-result">
-          <h3>{processedJobData.data.job_title || "Job Title"}</h3>
-          <p className="company">{processedJobData.data.company_name || "Company"}</p>
-          {processedJobData.data.location && <p className="location">📍 {processedJobData.data.location}</p>}
-          {processedJobData.data.remote_status && <p className="remote">🏠 {processedJobData.data.remote_status}</p>}
+          <h3>{processedJobData.job_title || "Job Title"}</h3>
+          <p className="company">{processedJobData.company_name || "Company"}</p>
+          {processedJobData.location && <p className="location">📍 {processedJobData.location}</p>}
+          {processedJobData.remote_status && <p className="remote">🏠 {processedJobData.remote_status}</p>}
           
-          {processedJobData.data.required_skills && processedJobData.data.required_skills.length > 0 && (
+          {processedJobData.required_skills && processedJobData.required_skills.length > 0 && (
             <div className="job-skills">
               <h4>Required Skills:</h4>
               <div className="skill-chips">
-                {processedJobData.data.required_skills.slice(0, 8).map((skill: string) => (
+                {processedJobData.required_skills.slice(0, 8).map((skill: string) => (
                   <span key={skill}>{skill}</span>
                 ))}
               </div>
             </div>
           )}
           
-          {processedJobData.data.key_responsibilities && processedJobData.data.key_responsibilities.length > 0 && (
+          {processedJobData.key_responsibilities && processedJobData.key_responsibilities.length > 0 && (
             <div className="job-responsibilities">
               <h4>Key Responsibilities:</h4>
               <ul>
-                {processedJobData.data.key_responsibilities.slice(0, 4).map((resp: string, idx: number) => (
+                {processedJobData.key_responsibilities.slice(0, 4).map((resp: string, idx: number) => (
                   <li key={idx}>{resp}</li>
                 ))}
               </ul>
@@ -446,10 +448,77 @@ function JobsPage({ jobUrl, setJobUrl, setJobSource, processedJobData, setProces
   </>; 
 }
 
-function AnalysisPage({ hasAnalysis, resumeData, jobData, startAnalysis, notify }: { hasAnalysis: boolean; resumeData: ResumeData | null; jobData: any; startAnalysis: () => void; notify: (v: string) => void }) { 
-  const questions = useMemo(() => ["Walk me through a complex requirements-gathering process you led.", "How do you approach writing efficient SQL queries for reporting?", "Describe a time you improved a business process with stakeholders."], []);
+function AnalysisPage({ hasAnalysis, resumeData, jobData, startAnalysis, notify, resumeFile, setHasAnalysis }: { hasAnalysis: boolean; resumeData: ResumeData | null; jobData: any; startAnalysis: () => void; notify: (v: string) => void; resumeFile: File | null; setHasAnalysis: (v: boolean) => void }) { 
+  const [analysisData, setAnalysisData] = useState<any>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   
-  if (!hasAnalysis || !jobData) return <>
+  // Auto-run analysis when page loads with job data
+  useEffect(() => {
+    if (jobData && !analysisData && !loading && !error) {
+      runRealAnalysis();
+    }
+  }, [jobData]);
+  
+  const runRealAnalysis = async () => {
+    if (!jobData) { notify("Extract a job first"); return; }
+    
+    setLoading(true);
+    setError(null);
+    
+    try {
+      const { runAnalysis } = await import("@/lib/api");
+      
+      // Build job data to send (the extracted job fields)
+      const jobPayload = jobData.data || jobData;
+      
+      let result;
+      if (resumeFile) {
+        // If we have the resume file, send it directly
+        result = await runAnalysis(resumeFile, jobPayload);
+      } else {
+        // Fallback: send job_data as JSON with a placeholder - the backend needs a resume PDF
+        // We'll try with job_description text approach
+        const formData = new FormData();
+        
+        // Create a minimal resume blob if no file available
+        if (resumeData) {
+          // Send job data as description text for the backend to process
+          const jobText = `${jobPayload.job_title || ''} at ${jobPayload.company_name || ''}\n\nRequired Skills: ${(jobPayload.required_skills || []).join(', ')}\n\nResponsibilities: ${(jobPayload.key_responsibilities || []).join(', ')}`;
+          
+          // We need resume file - inform the user
+          setError("Please re-upload your resume to run the full analysis. Your resume data is stored but the PDF file is needed for matching.");
+          setLoading(false);
+          return;
+        } else {
+          setError("Please upload your resume first to run analysis.");
+          setLoading(false);
+          return;
+        }
+      }
+      
+      if (result && 'success' in result && result.success) {
+        setAnalysisData(result);
+        setHasAnalysis(true);
+        notify("✓ Analysis complete!");
+      } else if (result && 'error' in result) {
+        setError(result.error || "Analysis failed");
+      } else {
+        // The backend may return the analysis directly without a success wrapper
+        setAnalysisData(result);
+        setHasAnalysis(true);
+        notify("✓ Analysis complete!");
+      }
+    } catch (err) {
+      console.error("Analysis error:", err);
+      setError(err instanceof Error ? err.message : "Analysis failed");
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  // Empty state - no job data
+  if (!jobData) return <>
     <PageHeader title="Job Match Analysis" subtitle="Your match results will appear here after an analysis." />
     <Card className="analysis-empty">
       <div className="empty-illustration"><span>▤</span><i>＋</i><span>▣</span></div>
@@ -460,31 +529,69 @@ function AnalysisPage({ hasAnalysis, resumeData, jobData, startAnalysis, notify 
     </Card>
   </>;
   
-  const jobTitle = jobData.data?.job_title || "Job Opportunity";
-  const companyName = jobData.data?.company_name || "Company";
-  const location = jobData.data?.location || "Remote";
-  const requiredSkills = jobData.data?.required_skills || [];
-  const responsibilities = jobData.data?.key_responsibilities || [];
+  // Loading state
+  if (loading) return <>
+    <PageHeader title="Job Match Analysis" subtitle="Analyzing your resume against the job..." />
+    <Card className="analysis-empty">
+      <div className="empty-illustration"><span>⏳</span></div>
+      <h2>Analyzing your match...</h2>
+      <p>The backend is comparing your skills, experience, and qualifications against the job requirements. This may take 15-30 seconds.</p>
+      <div className="loading-bar"><div className="loading-progress"></div></div>
+    </Card>
+  </>;
+  
+  // Error state
+  if (error) return <>
+    <PageHeader title="Job Match Analysis" subtitle="An issue occurred during analysis." />
+    <Card className="analysis-empty">
+      <div className="empty-illustration"><span>⚠</span></div>
+      <h2>Analysis Issue</h2>
+      <p>{error}</p>
+      <div style={{display:'flex', gap:'1rem', marginTop:'1rem'}}>
+        <button className="btn primary" onClick={runRealAnalysis}>Retry Analysis</button>
+        <button className="btn secondary" onClick={startAnalysis}>Back to Jobs</button>
+      </div>
+    </Card>
+  </>;
+  
+  // Results state - show real analysis data
+  const jobInfo = jobData.data || jobData;
+  const jobTitle = jobInfo.job_title || "Job Opportunity";
+  const companyName = jobInfo.company_name || "Company";
+  const location = jobInfo.location || "Remote";
+  
+  // Extract analysis results
+  const match = analysisData?.match;
+  const aiInsights = analysisData?.ai_insights;
+  const overallScore = match?.overall_score || 0;
+  const strengths = match?.strengths || [];
+  const gaps = match?.gaps || [];
+  const scoreBreakdown = match?.score_breakdown || {};
+  
+  const recommendation = aiInsights?.application_recommendation?.recommendation || "review";
+  const recommendationLabel = recommendation === "apply" ? "APPLY" : recommendation === "strong_apply" ? "STRONG APPLY" : "REVIEW";
+  const recommendationClass = recommendation.includes("apply") ? "success" : "warning";
   
   return <>
-    <PageHeader title="Job Match Analysis" subtitle="Analysis of your resume against the selected opportunity.">
+    <PageHeader title="Job Match Analysis" subtitle="Real analysis of your resume against the selected opportunity.">
       <div className="header-actions">
-        <button className="btn secondary small-btn" onClick={() => notify("Analysis saved")}>♡ Save Analysis</button>
-        <button className="btn primary small-btn" onClick={startAnalysis}>⌕ Analyze Another Job</button>
+        <button className="btn secondary small-btn" onClick={() => notify("Analysis saved")}>♡ Save</button>
+        <button className="btn primary small-btn" onClick={startAnalysis}>⌕ New Analysis</button>
       </div>
     </PageHeader>
+    
     <Card className="analysis-hero">
       <div className="candidate">
         <span className="avatar">CA</span>
         <div>
           <small>CANDIDATE PROFILE</small>
           <strong>Your Resume</strong>
-          <span>{resumeData?.data?.keywords?.[0] || "Technology Professional"}</span>
+          <span>{resumeData?.data?.keywords?.[0] || "Professional"}</span>
         </div>
       </div>
       <div className="analysis-score">
-        <strong>82%</strong>
-        <span>Sample Match</span>
+        <strong>{overallScore}%</strong>
+        <span>Match Score</span>
       </div>
       <div className="role">
         <div>
@@ -492,43 +599,97 @@ function AnalysisPage({ hasAnalysis, resumeData, jobData, startAnalysis, notify 
           <strong>{jobTitle}</strong>
           <span>{companyName} · {location}</span>
         </div>
-        <b>APPLY</b>
+        <b className={recommendationClass}>{recommendationLabel}</b>
       </div>
     </Card>
-    <div className="analysis-grid">
-      <InfoCard title="Why You Match" icon="✓">
-        <p>Your background aligns with the role requirements. Review the matched skills below and tailor your application to highlight your strongest qualifications.</p>
-      </InfoCard>
-      <InfoCard title="Top Strengths" icon="☆">
-        {requiredSkills.slice(0, 3).map(skill => (
-          <Metric key={skill} label={skill} value="Strong" />
-        ))}
-      </InfoCard>
-      <InfoCard title="Skill Gaps" icon="△">
-        {requiredSkills.slice(3, 5).map(skill => (
-          <Metric key={skill} label={skill} value="Moderate gap" warning />
-        ))}
-      </InfoCard>
-      <InfoCard title="Application Advice" icon="✎">
-        <ul>
-          {responsibilities.slice(0, 3).map((resp: string, i: number) => (
-            <li key={i}>Address: {resp.substring(0, 50)}...</li>
+    
+    {/* Score Breakdown */}
+    {scoreBreakdown && Object.keys(scoreBreakdown).length > 0 && (
+      <Card className="score-breakdown">
+        <h3>Score Breakdown</h3>
+        <div className="breakdown-grid">
+          {Object.entries(scoreBreakdown).map(([key, value]) => (
+            <div key={key} className="breakdown-item">
+              <span className="breakdown-label">{key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}</span>
+              <div className="breakdown-bar">
+                <div className="breakdown-fill" style={{width: `${value as number}%`}}></div>
+              </div>
+              <span className="breakdown-value">{value as number}%</span>
+            </div>
           ))}
-        </ul>
-      </InfoCard>
-      <InfoCard title="Interview Preparation" icon="◌">
-        {questions.map((q, i) => <button className="question" key={q}><b>{i + 1}</b><span>{q}</span><i>›</i></button>)}
-      </InfoCard>
-      <InfoCard title="Company Research" icon="▥">
-        <div className="company-card">
-          <span className="company-logo">✦</span>
-          <div>
-            <strong>{companyName}</strong>
-            <p className="success">● Research available</p>
-          </div>
         </div>
-        <p>Review the company overview before tailoring your application.</p>
-      </InfoCard>
+      </Card>
+    )}
+    
+    <div className="analysis-grid">
+      {/* AI Summary */}
+      {aiInsights?.summary && (
+        <InfoCard title="Summary" icon="📋">
+          <p>{aiInsights.summary}</p>
+        </InfoCard>
+      )}
+      
+      {/* Why You Match */}
+      {aiInsights?.why_you_match && aiInsights.why_you_match.length > 0 && (
+        <InfoCard title="Why You Match" icon="✓">
+          <ul>
+            {aiInsights.why_you_match.map((reason: string, i: number) => (
+              <li key={i}>{reason}</li>
+            ))}
+          </ul>
+        </InfoCard>
+      )}
+      
+      {/* Top Strengths */}
+      {strengths.length > 0 && (
+        <InfoCard title="Top Strengths" icon="☆">
+          {strengths.slice(0, 5).map((s: string) => (
+            <Metric key={s} label={s} value="Strong" />
+          ))}
+        </InfoCard>
+      )}
+      
+      {/* Skill Gaps */}
+      {gaps.length > 0 && (
+        <InfoCard title="Skill Gaps" icon="△">
+          {gaps.slice(0, 5).map((g: string) => (
+            <Metric key={g} label={g} value="Gap" warning />
+          ))}
+        </InfoCard>
+      )}
+      
+      {/* Resume Improvements */}
+      {aiInsights?.resume_improvements && aiInsights.resume_improvements.length > 0 && (
+        <InfoCard title="Resume Improvements" icon="✎">
+          <ul>
+            {aiInsights.resume_improvements.map((tip: string, i: number) => (
+              <li key={i}>{tip}</li>
+            ))}
+          </ul>
+        </InfoCard>
+      )}
+      
+      {/* Interview Focus */}
+      {aiInsights?.interview_focus && aiInsights.interview_focus.length > 0 && (
+        <InfoCard title="Interview Preparation" icon="◌">
+          {aiInsights.interview_focus.map((q: string, i: number) => (
+            <button className="question" key={i}><b>{i + 1}</b><span>{q}</span><i>›</i></button>
+          ))}
+        </InfoCard>
+      )}
+      
+      {/* Application Recommendation */}
+      {aiInsights?.application_recommendation && (
+        <InfoCard title="Recommendation" icon="▥">
+          <div className="company-card">
+            <span className={`company-logo ${recommendationClass}`}>{recommendation.includes("apply") ? "✓" : "?"}</span>
+            <div>
+              <strong>{recommendationLabel}</strong>
+              <p>{aiInsights.application_recommendation.reason}</p>
+            </div>
+          </div>
+        </InfoCard>
+      )}
     </div>
   </>; 
 }

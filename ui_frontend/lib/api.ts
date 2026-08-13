@@ -362,6 +362,86 @@ export async function checkHealth(): Promise<{ status: string; service: string }
   return response.json();
 }
 
+// ============ ANALYSIS TYPES ============
+export interface ScoreBreakdown {
+  hard_skills: number;
+  soft_skills: number;
+  experience: number;
+  education: number;
+}
+
+export interface MatchData {
+  overall_score: number;
+  score_breakdown: ScoreBreakdown;
+  strengths: string[];
+  gaps: string[];
+  status: string;
+}
+
+export interface ApplicationRecommendation {
+  recommendation: string;
+  reason: string;
+}
+
+export interface AIInsights {
+  status: string;
+  summary: string;
+  why_you_match: string[];
+  skill_gaps: string[];
+  resume_improvements: string[];
+  application_recommendation: ApplicationRecommendation;
+  interview_focus: string[];
+}
+
+export interface AnalysisResult {
+  success: boolean;
+  analysis_id: string;
+  status: string;
+  match: MatchData;
+  ai_insights: AIInsights;
+}
+
+/**
+ * Run full job match analysis
+ * Sends resume PDF + job data to backend /api/analysis
+ * Returns comprehensive match results with score, strengths, gaps, and AI insights
+ */
+export async function runAnalysis(
+  resumeFile: File,
+  jobData?: Record<string, unknown>,
+  jobDescription?: string
+): Promise<AnalysisResult | ErrorResponse> {
+  const formData = new FormData();
+  formData.append('resume', resumeFile);
+  
+  if (jobData) {
+    formData.append('job_data', JSON.stringify(jobData));
+  }
+  if (jobDescription) {
+    formData.append('job_description', jobDescription);
+  }
+
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/analysis`, {
+      method: 'POST',
+      body: formData,
+    });
+
+    const data = await response.json();
+    
+    if (data.error) {
+      return data as ErrorResponse;
+    }
+    
+    return data as AnalysisResult;
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Analysis request failed',
+    };
+  }
+}
+
 /**
  * Get API information
  */

@@ -3,7 +3,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import resume
+from app.api import resume, jobs, analysis
 
 # Initialize FastAPI application
 app = FastAPI(
@@ -30,6 +30,8 @@ app.add_middleware(
 
 # Include routers
 app.include_router(resume.router)
+app.include_router(jobs.router)
+app.include_router(analysis.router)
 
 
 @app.get("/api/health", tags=["Health"])
@@ -47,4 +49,6 @@ async def root():
         "docs": "/api/docs",
         "health": "/api/health",
         "resume": "/api/resume (POST)",
+        "jobs": "/api/jobs (POST)",
+        "analysis": "/api/analysis (POST)",
     }

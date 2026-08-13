@@ -1,5 +1,4 @@
 """Job API routes for processing job postings with multipart/form-data."""
-
 import logging
 import uuid
 from datetime import datetime, timezone
@@ -7,6 +6,12 @@ from typing import Annotated, Optional
 
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 from fastapi.responses import JSONResponse
+
+# Import JobPosting model for CompanyResearch
+import sys
+from pathlib import Path as PathObj
+sys.path.insert(0, str(PathObj(__file__).resolve().parents[3]))
+from src.models.job import CompanyResearch
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -334,6 +339,12 @@ async def process_job(
                 company_research["whois_info"] = whois_info
             else:
                 company_research = {"summary": company_research, "whois_info": whois_info}
+        
+        # Apply company research to job_data
+        if isinstance(company_research, dict):
+            job_data.company_research = CompanyResearch(summary=company_research.get("summary", "Company research unavailable"))
+        else:
+            job_data.company_research = CompanyResearch(summary=company_research)
         
         logger.info(f"Successfully completed all processing for {job_id}")
         

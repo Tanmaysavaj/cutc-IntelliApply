@@ -40,4 +40,22 @@
 /* Analysis page warning/success states */
 .role>b.warning{color:var(--orange);border:1px solid var(--orange);background:color-mix(in srgb,var(--orange) 9%,var(--surface));padding:16px 24px;border-radius:10px}
 
-@media(max-width:760px){.breakdown-item{grid-template-columns:1fr;gap:4px}.breakdown-bar{margin-top:4px}}
+/* Analysis Summary Card */
+.analysis-summary-card{margin-top:16px;padding:28px}.analysis-summary-card h3{margin:0 0 14px;font-size:18px}.analysis-summary-text{color:var(--muted);line-height:1.75;font-size:15px;margin:0 0 18px}
+
+/* Recommendation Banner */
+.recommendation-banner{display:flex;align-items:flex-start;gap:14px;padding:18px 20px;border-radius:12px;margin-top:14px}.recommendation-banner.success{background:color-mix(in srgb,var(--green) 8%,var(--surface));border:1px solid color-mix(in srgb,var(--green) 30%,var(--line))}.recommendation-banner.warning{background:color-mix(in srgb,var(--orange) 8%,var(--surface));border:1px solid color-mix(in srgb,var(--orange) 30%,var(--line))}.rec-icon{width:36px;height:36px;display:grid;place-items:center;border-radius:50%;font-size:18px;flex-shrink:0}.recommendation-banner.success .rec-icon{background:color-mix(in srgb,var(--green) 15%,var(--surface));color:var(--green)}.recommendation-banner.warning .rec-icon{background:color-mix(in srgb,var(--orange) 15%,var(--surface));color:var(--orange)}.recommendation-banner strong{display:block;margin-bottom:4px;font-size:15px}.recommendation-banner p{color:var(--muted);line-height:1.6;margin:0;font-size:14px}
+
+/* 2 Column Analysis Grid */
+.analysis-grid-2col{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:16px}.analysis-grid-2col .analysis-card{padding:24px}.analysis-grid-2col .analysis-card h3{display:flex;align-items:center;gap:10px;margin:0 0 16px;font-size:16px;font-weight:720}.card-icon{width:28px;height:28px;display:inline-grid;place-items:center;border-radius:8px;font-size:14px;flex-shrink:0}.card-icon.green{background:color-mix(in srgb,var(--green) 12%,var(--surface));color:var(--green)}.card-icon.orange{background:color-mix(in srgb,var(--orange) 12%,var(--surface));color:var(--orange)}.card-icon.purple{background:color-mix(in srgb,var(--primary) 12%,var(--surface));color:var(--primary)}
+
+/* Match/Gap Items */
+.match-list{padding-left:18px;color:var(--muted);line-height:1.75;font-size:14px}.match-list li{margin-bottom:8px}.gap-items,.strength-items{display:flex;flex-direction:column;gap:10px}.gap-item,.strength-item{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-radius:10px;font-size:13px;background:var(--bg)}.gap-item{border-left:3px solid var(--orange)}.strength-item{border-left:3px solid var(--green)}.gap-badge,.strength-badge{padding:4px 10px;border-radius:20px;font-size:11px;font-weight:700}.gap-badge{background:color-mix(in srgb,var(--orange) 12%,var(--surface));color:var(--orange)}.strength-badge{background:color-mix(in srgb,var(--green) 12%,var(--surface));color:var(--green)}
+
+/* Improvement list */
+.improvement-list{padding-left:18px;color:var(--muted);line-height:1.75;font-size:14px}.improvement-list li{margin-bottom:10px;padding-bottom:10px;border-bottom:1px solid var(--line)}.improvement-list li:last-child{border-bottom:0;margin-bottom:0;padding-bottom:0}
+
+/* Interview Section */
+.interview-section{margin-top:16px;padding:28px}.interview-section h3{margin:0 0 18px;font-size:18px}.interview-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px}.interview-card{display:flex;align-items:flex-start;gap:14px;padding:16px 18px;border-radius:12px;background:var(--bg);border:1px solid var(--line);transition:border-color .2s}.interview-card:hover{border-color:var(--primary)}.interview-num{width:30px;height:30px;display:grid;place-items:center;border-radius:50%;background:var(--primary);color:#fff;font-weight:800;font-size:13px;flex-shrink:0}.interview-card p{margin:0;color:var(--muted);line-height:1.6;font-size:13px}
+
+@media(max-width:760px){.breakdown-item{grid-template-columns:1fr;gap:4px}.breakdown-bar{margin-top:4px}.analysis-grid-2col{grid-template-columns:1fr}.interview-grid{grid-template-columns:1fr}}

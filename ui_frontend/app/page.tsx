@@ -572,14 +572,17 @@ function AnalysisPage({ hasAnalysis, resumeData, jobData, startAnalysis, notify,
   const recommendationLabel = recommendation === "apply" ? "APPLY" : recommendation === "strong_apply" ? "STRONG APPLY" : "REVIEW";
   const recommendationClass = recommendation.includes("apply") ? "success" : "warning";
   
+  // Determine score color
+  const scoreColor = overallScore >= 70 ? "var(--green)" : overallScore >= 40 ? "var(--orange)" : "var(--primary)";
+  
   return <>
     <PageHeader title="Job Match Analysis" subtitle="Real analysis of your resume against the selected opportunity.">
       <div className="header-actions">
-        <button className="btn secondary small-btn" onClick={() => notify("Analysis saved")}>♡ Save</button>
-        <button className="btn primary small-btn" onClick={startAnalysis}>⌕ New Analysis</button>
+        <button className="btn secondary small-btn" onClick={startAnalysis}>⌕ New Analysis</button>
       </div>
     </PageHeader>
     
+    {/* Hero Section with Score */}
     <Card className="analysis-hero">
       <div className="candidate">
         <span className="avatar">CA</span>
@@ -589,8 +592,8 @@ function AnalysisPage({ hasAnalysis, resumeData, jobData, startAnalysis, notify,
           <span>{resumeData?.data?.keywords?.[0] || "Professional"}</span>
         </div>
       </div>
-      <div className="analysis-score">
-        <strong>{overallScore}%</strong>
+      <div className="analysis-score" style={{borderColor: scoreColor}}>
+        <strong style={{color: scoreColor}}>{overallScore}%</strong>
         <span>Match Score</span>
       </div>
       <div className="role">
@@ -599,25 +602,25 @@ function AnalysisPage({ hasAnalysis, resumeData, jobData, startAnalysis, notify,
           <strong>{jobTitle}</strong>
           <span>{companyName} · {location}</span>
         </div>
-        <b className={recommendationClass}>{recommendationLabel}</b>
+        <b className={recommendationClass} onClick={startAnalysis} style={{cursor:'pointer'}} title="Go back to Jobs page">{recommendationLabel}</b>
       </div>
     </Card>
     
     {/* Score Breakdown */}
     {scoreBreakdown && Object.keys(scoreBreakdown).length > 0 && (
       <Card className="score-breakdown">
-        <h3>Score Breakdown</h3>
+        <h3>📊 Score Breakdown</h3>
         <div className="breakdown-grid">
           {Object.entries(scoreBreakdown).map(([key, value]) => {
-            // Handle both simple numbers and objects with score property
             const score = typeof value === 'number' ? value : (value as any)?.score ?? 0;
+            const barColor = score >= 70 ? 'var(--green)' : score >= 40 ? 'var(--orange)' : 'var(--primary)';
             return (
               <div key={key} className="breakdown-item">
                 <span className="breakdown-label">{key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}</span>
                 <div className="breakdown-bar">
-                  <div className="breakdown-fill" style={{width: `${score}%`}}></div>
+                  <div className="breakdown-fill" style={{width: `${score}%`, background: barColor}}></div>
                 </div>
-                <span className="breakdown-value">{score}%</span>
+                <span className="breakdown-value" style={{color: barColor}}>{score}%</span>
               </div>
             );
           })}
@@ -625,76 +628,93 @@ function AnalysisPage({ hasAnalysis, resumeData, jobData, startAnalysis, notify,
       </Card>
     )}
     
-    <div className="analysis-grid">
-      {/* AI Summary */}
-      {aiInsights?.summary && (
-        <InfoCard title="Summary" icon="📋">
-          <p>{aiInsights.summary}</p>
-        </InfoCard>
-      )}
-      
+    {/* AI Summary - Full Width */}
+    {aiInsights?.summary && (
+      <Card className="analysis-summary-card">
+        <h3>📋 AI Summary</h3>
+        <p className="analysis-summary-text">{aiInsights.summary}</p>
+        {aiInsights?.application_recommendation && (
+          <div className={`recommendation-banner ${recommendationClass}`}>
+            <span className="rec-icon">{recommendation.includes("apply") ? "✓" : "⚠"}</span>
+            <div>
+              <strong>Recommendation: {recommendationLabel}</strong>
+              <p>{aiInsights.application_recommendation.reason}</p>
+            </div>
+          </div>
+        )}
+      </Card>
+    )}
+    
+    <div className="analysis-grid-2col">
       {/* Why You Match */}
       {aiInsights?.why_you_match && aiInsights.why_you_match.length > 0 && (
-        <InfoCard title="Why You Match" icon="✓">
-          <ul>
+        <Card className="analysis-card">
+          <h3><span className="card-icon green">✓</span> Why You Match</h3>
+          <ul className="match-list">
             {aiInsights.why_you_match.map((reason: string, i: number) => (
               <li key={i}>{reason}</li>
             ))}
           </ul>
-        </InfoCard>
-      )}
-      
-      {/* Top Strengths */}
-      {strengths.length > 0 && (
-        <InfoCard title="Top Strengths" icon="☆">
-          {strengths.slice(0, 5).map((s: any, i: number) => (
-            <Metric key={i} label={typeof s === 'string' ? s : (s?.skill || s?.name || JSON.stringify(s))} value="Strong" />
-          ))}
-        </InfoCard>
+        </Card>
       )}
       
       {/* Skill Gaps */}
       {gaps.length > 0 && (
-        <InfoCard title="Skill Gaps" icon="△">
-          {gaps.slice(0, 5).map((g: any, i: number) => (
-            <Metric key={i} label={typeof g === 'string' ? g : (g?.skill || g?.name || JSON.stringify(g))} value="Gap" warning />
-          ))}
-        </InfoCard>
+        <Card className="analysis-card">
+          <h3><span className="card-icon orange">△</span> Skill Gaps</h3>
+          <div className="gap-items">
+            {gaps.slice(0, 6).map((g: any, i: number) => (
+              <div key={i} className="gap-item">
+                <span>● {typeof g === 'string' ? g : (g?.skill || g?.name || JSON.stringify(g))}</span>
+                <span className="gap-badge">Gap</span>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
+      
+      {/* Top Strengths */}
+      {strengths.length > 0 && (
+        <Card className="analysis-card">
+          <h3><span className="card-icon green">☆</span> Top Strengths</h3>
+          <div className="strength-items">
+            {strengths.slice(0, 6).map((s: any, i: number) => (
+              <div key={i} className="strength-item">
+                <span>✓ {typeof s === 'string' ? s : (s?.skill || s?.name || JSON.stringify(s))}</span>
+                <span className="strength-badge">Strong</span>
+              </div>
+            ))}
+          </div>
+        </Card>
       )}
       
       {/* Resume Improvements */}
       {aiInsights?.resume_improvements && aiInsights.resume_improvements.length > 0 && (
-        <InfoCard title="Resume Improvements" icon="✎">
-          <ul>
+        <Card className="analysis-card">
+          <h3><span className="card-icon purple">✎</span> Resume Improvements</h3>
+          <ul className="improvement-list">
             {aiInsights.resume_improvements.map((tip: string, i: number) => (
               <li key={i}>{tip}</li>
             ))}
           </ul>
-        </InfoCard>
-      )}
-      
-      {/* Interview Focus */}
-      {aiInsights?.interview_focus && aiInsights.interview_focus.length > 0 && (
-        <InfoCard title="Interview Preparation" icon="◌">
-          {aiInsights.interview_focus.map((q: string, i: number) => (
-            <button className="question" key={i}><b>{i + 1}</b><span>{q}</span><i>›</i></button>
-          ))}
-        </InfoCard>
-      )}
-      
-      {/* Application Recommendation */}
-      {aiInsights?.application_recommendation && (
-        <InfoCard title="Recommendation" icon="▥">
-          <div className="company-card">
-            <span className={`company-logo ${recommendationClass}`}>{recommendation.includes("apply") ? "✓" : "?"}</span>
-            <div>
-              <strong>{recommendationLabel}</strong>
-              <p>{aiInsights.application_recommendation.reason}</p>
-            </div>
-          </div>
-        </InfoCard>
+        </Card>
       )}
     </div>
+    
+    {/* Interview Focus - Full Width */}
+    {aiInsights?.interview_focus && aiInsights.interview_focus.length > 0 && (
+      <Card className="interview-section">
+        <h3>🎯 Interview Preparation</h3>
+        <div className="interview-grid">
+          {aiInsights.interview_focus.map((q: string, i: number) => (
+            <div className="interview-card" key={i}>
+              <span className="interview-num">{i + 1}</span>
+              <p>{q}</p>
+            </div>
+          ))}
+        </div>
+      </Card>
+    )}
   </>; 
 }
 

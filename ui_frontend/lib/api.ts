@@ -119,8 +119,46 @@ export async function processJobFromDescription(description: string): Promise<Jo
 
   const data = await response.json();
   
-  // Return data as-is (success or error) - let caller handle both
-  return data;
+  // Check if response is an error (has 'error' field from ErrorResponse)
+  if (data.error) {
+    return data as ErrorResponse;
+  }
+  
+  // Wrap the backend JobPosting response in the expected format
+  // Backend returns: { job_title, company_name, ..., extracted_at, job_id, extraction_source }
+  // Frontend expects: { success: true, job_id, status, extraction, data: { job_id, status, processed_at, data: {} } }
+  return {
+    success: true,
+    job_id: data.job_id,
+    status: 'completed',
+    extraction: {
+      source: data.extraction_source,
+      method: 'text',
+      status: 'success',
+      reason: null,
+    },
+    data: {
+      job_id: data.job_id,
+      status: 'completed',
+      processed_at: data.extracted_at,
+      data: {
+        job_title: data.job_title,
+        company_name: data.company_name,
+        company_website: data.company_website,
+        location: data.location,
+        remote_status: data.remote_status,
+        posting_age_days: data.posting_age_days,
+        required_skills: data.required_skills,
+        preferred_skills: data.preferred_skills,
+        experience_level: data.experience_level,
+        education_requirements: data.education_requirements,
+        salary_range: data.salary_range,
+        key_responsibilities: data.key_responsibilities,
+        company_research: data.company_research,
+      },
+      resume: null,
+    },
+  };
 }
 
 /**
@@ -138,8 +176,46 @@ export async function processJobFromPDF(file: File): Promise<JobProcessingRespon
 
   const data = await response.json();
   
-  // Return data as-is (success or error) - let caller handle both
-  return data;
+  // Check if response is an error (has 'error' field from ErrorResponse)
+  if (data.error) {
+    return data as ErrorResponse;
+  }
+  
+  // Wrap the backend JobPosting response in the expected format
+  // Backend returns: { job_title, company_name, ..., extracted_at, job_id, extraction_source }
+  // Frontend expects: { success: true, job_id, status, extraction, data: { job_id, status, processed_at, data: {} } }
+  return {
+    success: true,
+    job_id: data.job_id,
+    status: 'completed',
+    extraction: {
+      source: data.extraction_source,
+      method: 'pdf',
+      status: 'success',
+      reason: null,
+    },
+    data: {
+      job_id: data.job_id,
+      status: 'completed',
+      processed_at: data.extracted_at,
+      data: {
+        job_title: data.job_title,
+        company_name: data.company_name,
+        company_website: data.company_website,
+        location: data.location,
+        remote_status: data.remote_status,
+        posting_age_days: data.posting_age_days,
+        required_skills: data.required_skills,
+        preferred_skills: data.preferred_skills,
+        experience_level: data.experience_level,
+        education_requirements: data.education_requirements,
+        salary_range: data.salary_range,
+        key_responsibilities: data.key_responsibilities,
+        company_research: data.company_research,
+      },
+      resume: null,
+    },
+  };
 }
 
 /**
@@ -158,8 +234,46 @@ export async function processJobFromURL(url: string): Promise<JobProcessingRespo
 
   const data = await response.json();
   
-  // Return data as-is (success or error) - let caller handle both
-  return data;
+  // Check if response is an error (has 'error' field from ErrorResponse)
+  if (data.error) {
+    return data as ErrorResponse;
+  }
+  
+  // Wrap the backend JobPosting response in the expected format
+  // Backend returns: { job_title, company_name, ..., extracted_at, job_id, extraction_source }
+  // Frontend expects: { success: true, job_id, status, extraction, data: { job_id, status, processed_at, data: {} } }
+  return {
+    success: true,
+    job_id: data.job_id,
+    status: 'completed',
+    extraction: {
+      source: data.extraction_source,
+      method: 'url',
+      status: 'success',
+      reason: null,
+    },
+    data: {
+      job_id: data.job_id,
+      status: 'completed',
+      processed_at: data.extracted_at,
+      data: {
+        job_title: data.job_title,
+        company_name: data.company_name,
+        company_website: data.company_website,
+        location: data.location,
+        remote_status: data.remote_status,
+        posting_age_days: data.posting_age_days,
+        required_skills: data.required_skills,
+        preferred_skills: data.preferred_skills,
+        experience_level: data.experience_level,
+        education_requirements: data.education_requirements,
+        salary_range: data.salary_range,
+        key_responsibilities: data.key_responsibilities,
+        company_research: data.company_research,
+      },
+      resume: null,
+    },
+  };
 }
 
 /**
@@ -190,8 +304,49 @@ export async function processJobWithFallback(
 
   const data = await response.json();
   
-  // Return data as-is (success or error) - let caller handle both
-  return data;
+  // Check if response is an error (has 'error' field from ErrorResponse)
+  if (data.error) {
+    return data as ErrorResponse;
+  }
+  
+  // Wrap the backend JobPosting response in the expected format
+  // Backend returns: { job_title, company_name, ..., extracted_at, job_id, extraction_source }
+  // Frontend expects: { success: true, job_id, status, extraction, data: { job_id, status, processed_at, data: {} } }
+  const method = data.extraction_source === 'job_description_pdf' ? 'pdf' : 
+                 data.extraction_source === 'url' ? 'url' : 'text';
+  
+  return {
+    success: true,
+    job_id: data.job_id,
+    status: 'completed',
+    extraction: {
+      source: data.extraction_source,
+      method: method,
+      status: 'success',
+      reason: null,
+    },
+    data: {
+      job_id: data.job_id,
+      status: 'completed',
+      processed_at: data.extracted_at,
+      data: {
+        job_title: data.job_title,
+        company_name: data.company_name,
+        company_website: data.company_website,
+        location: data.location,
+        remote_status: data.remote_status,
+        posting_age_days: data.posting_age_days,
+        required_skills: data.required_skills,
+        preferred_skills: data.preferred_skills,
+        experience_level: data.experience_level,
+        education_requirements: data.education_requirements,
+        salary_range: data.salary_range,
+        key_responsibilities: data.key_responsibilities,
+        company_research: data.company_research,
+      },
+      resume: null,
+    },
+  };
 }
 
 /**

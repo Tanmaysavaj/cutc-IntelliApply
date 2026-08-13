@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { uploadResume, type ResumeResponse, type ResumeData } from "@/lib/api";
+import { saveResume, loadResume, saveJob, loadJob, clearAllData } from "@/lib/storage";
+import type { StoredJobData } from "@/lib/storage";
 
 type Page = "landing" | "resume" | "jobs" | "analysis" | "history";
 const Icon = ({ children }: { children: React.ReactNode }) => <span className="icon" aria-hidden="true">{children}</span>;
@@ -25,6 +27,25 @@ export default function Home() {
   const [resumeData, setResumeData] = useState<ResumeData | null>(null);
   const [fileName, setFileName] = useState<string>("");
   const fileRef = useRef<HTMLInputElement>(null);
+  
+  // Load persisted data on mount
+  useEffect(() => {
+    const storedResume = loadResume();
+    const storedJob = loadJob();
+    
+    if (storedResume) {
+      setResumeData(storedResume);
+      setUploaded(true);
+      console.log('✓ Loaded resume from storage');
+    }
+    
+    if (storedJob) {
+      setProcessedJobData(storedJob.data);
+      setJobSource({ kind: storedJob.extraction_source, value: storedJob.source_value || '' });
+      console.log('✓ Loaded job from storage');
+    }
+  }, []);
+  
   useEffect(() => { document.documentElement.dataset.theme = theme; }, [theme]);
   const toggleTheme = () => { const next = theme === "light" ? "dark" : "light"; setTheme(next); document.documentElement.dataset.theme = next; localStorage.setItem("intelliapply-theme", next); };
   const notify = (message: string) => { setToast(message); window.setTimeout(() => setToast(""), 2600); };
@@ -53,6 +74,7 @@ export default function Home() {
       
       if (response.success && response.data) {
         setResumeData(response.data);
+        saveResume(response.data);  // ← Save to localStorage
         setUploaded(true);
         setPage("resume");
         notify("Resume parsed successfully!");
@@ -208,7 +230,7 @@ function JobsPage({ jobUrl, setJobUrl, setJobSource, processedJobData, setProces
     },
   }))();
   
-  const saveJob = async () => {
+  const extractAndSaveJob = async () => {
     if (!jobUrl.trim()) {
       notify("Add a job URL or description first");
       return;
@@ -228,8 +250,25 @@ function JobsPage({ jobUrl, setJobUrl, setJobSource, processedJobData, setProces
       
       if (response.success && response.data) {
         setProcessedJobData(response.data.data);
+        
+        // ← Save job to localStorage
+        const jobToStore: StoredJobData = {
+          data: response.data.data,
+          job_id: response.job_id,
+          extracted_at: response.data.processed_at,
+          extraction_source: response.extraction.source as 'description' | 'job_description_pdf' | 'url',
+          source_value: jobUrl.trim(),
+        };
+        saveJob(jobToStore);
+        
         notify("✓ Job extracted successfully!");
         setJobUrl("");
+        
+        // ← Auto-redirect to analysis page after 1.5 seconds
+        setTimeout(() => {
+          // Navigate to analysis page - the stored data will be loaded via useEffect
+          window.location.href = '/?page=analysis';
+        }, 1500);
       } else {
         // Handle error response from backend
         const errorMsg = response.error || "Failed to extract job details";
@@ -266,7 +305,23 @@ function JobsPage({ jobUrl, setJobUrl, setJobSource, processedJobData, setProces
       if (response.success && response.data) {
         setProcessedJobData(response.data.data);
         setJobSource({kind: "Job Description PDF", value: file.name});
+        
+        // ← Save job to localStorage
+        const jobToStore: StoredJobData = {
+          data: response.data.data,
+          job_id: response.job_id,
+          extracted_at: response.data.processed_at,
+          extraction_source: response.extraction.source as 'description' | 'job_description_pdf' | 'url',
+          source_value: file.name,
+        };
+        saveJob(jobToStore);
+        
         notify("✓ PDF processed successfully!");
+        
+        // ← Auto-redirect to analysis page after 1.5 seconds
+        setTimeout(() => {
+          window.location.href = '/?page=analysis';
+        }, 1500);
       } else {
         // Handle error response from backend
         const errorMsg = response.error || "Failed to process PDF";
@@ -303,7 +358,7 @@ function JobsPage({ jobUrl, setJobUrl, setJobSource, processedJobData, setProces
               placeholder="https://company.com/jobs/..." 
               disabled={processing}
             />
-            <button className="btn primary" onClick={saveJob} disabled={processing}>
+            <button className="btn primary" onClick={extractAndSaveJob} disabled={processing}>
               {processing ? "Processing..." : "Extract Job"}
             </button>
           </>
@@ -317,7 +372,7 @@ function JobsPage({ jobUrl, setJobUrl, setJobSource, processedJobData, setProces
               placeholder="Paste the full job description here…" 
               disabled={processing}
             />
-            <button className="btn primary" onClick={saveJob} disabled={processing}>
+            <button className="btn primary" onClick={extractAndSaveJob} disabled={processing}>
               {processing ? "Processing..." : "Extract Job"}
             </button>
           </>

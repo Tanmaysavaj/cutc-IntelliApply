@@ -3,6 +3,8 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.api import resume
+
 # Initialize FastAPI application
 app = FastAPI(
     title="IntelliApply API",
@@ -26,6 +28,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Include routers
+app.include_router(resume.router)
+
 
 @app.get("/api/health", tags=["Health"])
 async def health_check():
@@ -41,4 +46,5 @@ async def root():
         "version": "1.0.0",
         "docs": "/api/docs",
         "health": "/api/health",
+        "resume": "/api/resume (POST)",
     }

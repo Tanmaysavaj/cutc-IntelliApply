@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useState, useCallback, useRef, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback, useRef, ReactNode } from 'react';
 
 type Page = 'landing' | 'resume' | 'jobs' | 'analysis' | 'history';
 
@@ -39,12 +39,15 @@ const AppStateContext = createContext<AppStateContextType | undefined>(undefined
 
 export function AppStateProvider({ children }: { children: ReactNode }) {
   const [page, setPage] = useState<Page>('landing');
-  const [theme, setTheme] = useState<'light' | 'dark'>(() =>
-    typeof window === 'undefined'
-      ? 'light'
-      : (localStorage.getItem('intelliapply-theme') as 'light' | 'dark' | null) ||
-        (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
-  );
+  const [theme, setTheme] = useState<'light' | 'dark'>('light');
+
+  useEffect(() => {
+    const saved = localStorage.getItem('intelliapply-theme') as 'light' | 'dark' | null;
+    const preferred = saved || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+    setTheme(preferred);
+    document.documentElement.dataset.theme = preferred;
+  }, []);
+  
   const [uploaded, setUploaded] = useState(false);
   const [parsing, setParsing] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);

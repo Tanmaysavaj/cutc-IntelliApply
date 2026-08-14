@@ -41,6 +41,9 @@ function DashboardChrome({ children }: { children: ReactNode }) {
       {appState.parsing ? (
         <LoadingOverlay title="Reading your resume" detail="Extracting skills, experience, and education…" />
       ) : null}
+      {appState.analyzing ? (
+        <LoadingOverlay title="Analyzing your match" detail="Comparing skills, experience, and responsibilities…" />
+      ) : null}
 
       {appState.toast ? <Toast message={appState.toast} /> : null}
     </div>

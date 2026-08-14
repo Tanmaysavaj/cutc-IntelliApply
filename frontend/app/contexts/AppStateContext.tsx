@@ -1,5 +1,6 @@
 'use client';
 
+import { useRouter } from 'next/navigation';
 import { createContext, useContext, useState, useEffect, useCallback, useRef, ReactNode } from 'react';
 
 type Page = 'landing' | 'resume' | 'jobs' | 'analysis' | 'history';
@@ -38,6 +39,7 @@ interface AppStateContextType {
 const AppStateContext = createContext<AppStateContextType | undefined>(undefined);
 
 export function AppStateProvider({ children }: { children: ReactNode }) {
+  const router = useRouter();
   const [page, setPage] = useState<Page>('landing');
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
 
@@ -47,7 +49,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     setTheme(preferred);
     document.documentElement.dataset.theme = preferred;
   }, []);
-  
+
   const [uploaded, setUploaded] = useState(false);
   const [parsing, setParsing] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
@@ -84,6 +86,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     if (!uploaded) {
       notify('Upload your resume before starting an analysis');
       setPage('resume');
+      router.push('/resume');
       return;
     }
 
@@ -92,8 +95,9 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       setHasAnalysis(true);
       setAnalyzing(false);
       setPage('analysis');
+      router.push('/analysis');
     }, 1800);
-  }, [uploaded, notify, setAnalyzing, setHasAnalysis, setPage]);
+  }, [uploaded, notify, setAnalyzing, setHasAnalysis, setPage, router]);
 
   return (
     <AppStateContext.Provider

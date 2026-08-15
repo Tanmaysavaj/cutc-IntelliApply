@@ -7,8 +7,10 @@ import type { StoredJobData, AnalysisHistoryEntry } from "@/lib/storage";
 import { useDemo } from "@/lib/useDemo";
 import { useAuth, type UseAuthReturn } from "@/lib/useAuth";
 import type { DemoAnalysis, DemoJob } from "@/lib/data";
+import { demoCareerSnapshot } from "@/lib/data";
+import { projectConfig } from "@/lib/config";
 
-type Page = "landing" | "resume" | "jobs" | "analysis" | "history" | "how-it-works" | "about";
+type Page = "landing" | "resume" | "jobs" | "analysis" | "history" | "how-it-works" | "about" | "team";
 const Icon = ({ children }: { children: React.ReactNode }) => <span className="icon" aria-hidden="true">{children}</span>;
 const navItems: { id: Page; label: string; icon: string }[] = [
   { id: "landing", label: "Home", icon: "⌂" }, { id: "resume", label: "Resume", icon: "▤" },
@@ -118,6 +120,7 @@ export default function Home() {
         {page === "history" && isDemo && <DemoHistoryPage data={demo.data} selectJob={selectJob} setPage={setPage} />}
         {page === "how-it-works" && <HowItWorksPage setPage={setPage} isDemo={isDemo} onDemo={handleEnterDemo} />}
         {page === "about" && <AboutPage setPage={setPage} />}
+        {page === "team" && <TeamPage setPage={setPage} />}
       </div>
       <Footer setPage={setPage} isDemo={isDemo} onDemo={handleEnterDemo} />
     </section>
@@ -140,7 +143,7 @@ function Topbar({ page, setPage, theme, toggleTheme, isDemo, onExitDemo, auth, o
   const [showUserMenu, setShowUserMenu] = useState(false);
   return <header className={`topbar ${isLanding ? "landing-topbar" : ""}`}>
     {isLanding && <Brand onHome={() => setPage("landing")} />}
-    {isLanding && <nav className="top-nav">{links.map(link => <button key={link.id} className={page === link.id ? "active" : ""} onClick={() => setPage(link.id)}>{link.label}</button>)}<button onClick={() => setPage("how-it-works")}>How It Works</button><button onClick={() => setPage("about")}>About</button></nav>}
+    {isLanding && <nav className="top-nav">{links.map(link => <button key={link.id} className={page === link.id ? "active" : ""} onClick={() => setPage(link.id)}>{link.label}</button>)}<button onClick={() => setPage("how-it-works")}>How It Works</button><button onClick={() => setPage("about")}>About</button><button onClick={() => setPage("team")}>Team</button></nav>}
     {!isLanding && <div className="mobile-brand"><Brand compact onHome={() => setPage("landing")} /></div>}
     {isDemo && <span className="demo-badge">DEMO MODE</span>}
     <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -321,6 +324,35 @@ function DemoDashboard({ data, setPage, selectJob }: { data: any; setPage: (p: P
               <span className={`rec-badge small ${getRecommendationClass(a.recommendation)}`}>{getRecommendationLabel(a.recommendation)}</span>
             </div>;
           })}
+        </div>
+      </Card>
+    </section>
+
+    {/* Career Snapshot — Demo Only */}
+    <section className="career-snapshot-section">
+      <div className="section-heading"><h2>Career Snapshot</h2></div>
+      <p className="career-snapshot-subtitle">A quick look at your current career profile.</p>
+      <div className="snapshot-stats-grid">
+        <div className="snapshot-stat-card"><span className="snapshot-stat-value">{demoCareerSnapshot.averageMatch}%</span><span className="snapshot-stat-label">Average Match</span><span className="snapshot-stat-desc">Average match across analyzed jobs.</span></div>
+        <div className="snapshot-stat-card"><span className="snapshot-stat-value">{demoCareerSnapshot.jobsAnalyzed}</span><span className="snapshot-stat-label">Jobs Analyzed</span><span className="snapshot-stat-desc">Opportunities evaluated.</span></div>
+        <div className="snapshot-stat-card"><span className="snapshot-stat-value">{demoCareerSnapshot.strongMatches}</span><span className="snapshot-stat-label">Strong Matches</span><span className="snapshot-stat-desc">Jobs worth prioritizing.</span></div>
+        <div className="snapshot-stat-card"><span className="snapshot-stat-value">{demoCareerSnapshot.skillGaps}</span><span className="snapshot-stat-label">Skill Gaps</span><span className="snapshot-stat-desc">Skills appearing across target roles.</span></div>
+      </div>
+      <Card className="snapshot-skills-card">
+        <div className="snapshot-skills-row">
+          <div className="snapshot-skills-block">
+            <h4>Your Strongest Skills</h4>
+            <div className="skill-chips green-chips">{demoCareerSnapshot.strongestSkills.map(s => <span key={s}>{s}</span>)}</div>
+          </div>
+          <div className="snapshot-skills-block">
+            <h4>Skills To Develop</h4>
+            <div className="skill-chips orange-chips">{demoCareerSnapshot.skillsToDevelop.map(s => <span key={s}>{s}</span>)}</div>
+          </div>
+        </div>
+        <div className="snapshot-focus">
+          <h4>Career Focus</h4>
+          <p className="snapshot-focus-title">{demoCareerSnapshot.careerFocus}</p>
+          <p className="snapshot-focus-desc">{demoCareerSnapshot.description}</p>
         </div>
       </Card>
     </section>
@@ -557,20 +589,103 @@ function HowItWorksPage({ setPage, isDemo, onDemo }: { setPage: (p: Page) => voi
 /* ─── ABOUT PAGE ─── */
 function AboutPage({ setPage }: { setPage: (p: Page) => void }) {
   return <>
-    <PageHeader title="About IntelliApply" subtitle="AI-powered career intelligence for smarter applications." />
-    <Card className="about-card">
-      <h2>The Story</h2>
-      <p>IntelliApply was inspired by the real experience of applying to internships and jobs as computer science students.</p>
-      <h3>The Problem</h3>
-      <p>Every application requires manually comparing a resume with the job description, researching the company, identifying skill gaps, improving the resume, and preparing for interviews. Existing tools often focus on only one part of this process or put useful functionality behind paid subscriptions.</p>
-      <h3>Our Solution</h3>
-      <p>IntelliApply brings these workflows together into one career intelligence platform. Upload once, analyze any job, and get clear, actionable insights — match scores, skill gaps, resume improvements, and interview preparation — all in one place.</p>
-      <h3>Built With</h3>
-      <div className="tech-stack">
-        <span>Next.js</span><span>React</span><span>TypeScript</span><span>Python</span><span>FastAPI</span><span>OpenAI</span><span>Tailwind CSS</span>
+    <PageHeader title="About" subtitle="Learn about IntelliApply and why we built it." />
+
+    {/* Hero */}
+    <section className="about-hero-section">
+      <h2>Why IntelliApply?</h2>
+      <p className="about-subtitle">The job search shouldn't feel like a full-time job.</p>
+      <p className="about-supporting">IntelliApply was built to make the process of finding, understanding, and preparing for the right opportunities simpler.</p>
+    </section>
+
+    {/* The Problem */}
+    <Card className="about-section-card">
+      <h3>Finding a job is more than submitting a resume.</h3>
+      <p>When we were applying for internships and co-op opportunities, every application meant doing the same work over and over again:</p>
+      <ul className="about-list">
+        <li>Read the job description.</li>
+        <li>Compare it with the resume.</li>
+        <li>Figure out which skills actually match.</li>
+        <li>Identify what's missing.</li>
+        <li>Research the company.</li>
+        <li>Decide whether the opportunity is worth applying to.</li>
+        <li>Then prepare the resume and interview.</li>
+      </ul>
+      <p>And often, that meant jumping between multiple platforms to get everything done.</p>
+      <p>There are already great tools that solve parts of this problem, but many are built around a single use case or place their most useful features behind paid subscriptions.</p>
+      <p>We thought there had to be a better way.</p>
+    </Card>
+
+    {/* The Idea */}
+    <Card className="about-section-card">
+      <h3>That's where IntelliApply started.</h3>
+      <p>Instead of building another tool that solves only one part of the job search, we wanted to bring the important pieces together in one place.</p>
+      <p>IntelliApply takes your resume and a job opportunity and helps you understand the entire picture.</p>
+      <div className="about-value-questions">
+        <div className="about-question-block">
+          <span className="about-q-label">Not just:</span>
+          <span className="about-q-text">"What's my match score?"</span>
+        </div>
+        <div className="about-answer-block">
+          <span className="about-a-label">But:</span>
+          <div className="about-answers">
+            <span>"Why am I a match?"</span>
+            <span>"What am I missing?"</span>
+            <span>"What should I improve?"</span>
+            <span>"Is this opportunity worth pursuing?"</span>
+            <span>"How should I prepare?"</span>
+          </div>
+        </div>
       </div>
     </Card>
-    <div className="about-cta"><button className="btn secondary" onClick={() => setPage("landing")}>← Back Home</button></div>
+
+    {/* What IntelliApply Does */}
+    <section className="about-features-section">
+      <h2>One platform. One career profile. One place to prepare.</h2>
+      <div className="about-features-grid">
+        <div className="about-feature-card"><span className="about-feature-icon">▤</span><h4>Resume Intelligence</h4><p>Understand your experience, skills, education and strengths.</p></div>
+        <div className="about-feature-card"><span className="about-feature-icon">▣</span><h4>Job Intelligence</h4><p>Break down job descriptions into the skills and requirements that actually matter.</p></div>
+        <div className="about-feature-card"><span className="about-feature-icon">◎</span><h4>Smart Matching</h4><p>Compare your resume with a specific opportunity and understand how well your experience aligns.</p></div>
+        <div className="about-feature-card"><span className="about-feature-icon">△</span><h4>Skill Gap Insights</h4><p>Identify the skills you're missing and the areas that could make you a stronger candidate.</p></div>
+        <div className="about-feature-card"><span className="about-feature-icon">↗</span><h4>Application & Interview Guidance</h4><p>Get practical recommendations for improving your resume, positioning yourself for the role and preparing for interviews.</p></div>
+      </div>
+    </section>
+
+    {/* Our Approach */}
+    <Card className="about-section-card">
+      <h3>AI that supports your decisions.</h3>
+      <p>We don't believe AI should make every decision for you.</p>
+      <p>IntelliApply combines structured data and deterministic matching with AI-powered insights.</p>
+      <p>The match score is based on the information extracted from your resume and the job requirements, while AI helps explain the results and turn them into useful recommendations.</p>
+      <p>The goal isn't to replace your judgment.</p>
+      <p className="about-highlight">It's to give you better information to make that judgment.</p>
+    </Card>
+
+    {/* Our Mission */}
+    <Card className="about-section-card about-mission">
+      <h3>Our Mission</h3>
+      <p className="about-mission-text">Make the job search less about guessing and more about making informed decisions.</p>
+      <p>We want people to spend less time switching between tools and more time focusing on opportunities that genuinely fit their skills and goals.</p>
+    </Card>
+
+    {/* How It Works */}
+    <section className="about-how-section">
+      <h2>How It Works</h2>
+      <div className="about-steps">
+        <div className="about-step"><span className="about-step-num">01</span><div><h4>Upload Your Resume</h4><p>We analyze your experience, education and skills.</p></div></div>
+        <div className="about-step"><span className="about-step-num">02</span><div><h4>Add a Job</h4><p>Provide a job opportunity you are considering.</p></div></div>
+        <div className="about-step"><span className="about-step-num">03</span><div><h4>Analyze Your Match</h4><p>Compare your profile against the role's requirements.</p></div></div>
+        <div className="about-step"><span className="about-step-num">04</span><div><h4>Understand Your Gaps</h4><p>See the skills and experience that could strengthen your application.</p></div></div>
+        <div className="about-step"><span className="about-step-num">05</span><div><h4>Apply With Confidence</h4><p>Use personalized insights to make a better application decision.</p></div></div>
+      </div>
+    </section>
+
+    {/* CTA */}
+    <section className="about-cta-section">
+      <h2>Your next opportunity starts with understanding where you stand.</h2>
+      <p className="about-cta-sub">{projectConfig.tagline}</p>
+      <button className="btn primary" onClick={() => setPage("landing")}>Try IntelliApply</button>
+    </section>
   </>;
 }
 
@@ -580,7 +695,7 @@ function Footer({ setPage, isDemo, onDemo }: { setPage: (p: Page) => void; isDem
     <div className="footer-grid">
       <div className="footer-brand">
         <span className="brand"><span className="brand-mark">✦</span><span>Intelli<span>Apply</span></span></span>
-        <p>AI-powered career intelligence for smarter applications.</p>
+        <p>{projectConfig.supportingTagline}</p>
       </div>
       <div className="footer-col">
         <h4>Product</h4>
@@ -588,23 +703,68 @@ function Footer({ setPage, isDemo, onDemo }: { setPage: (p: Page) => void; isDem
         <button onClick={() => setPage("resume")}>Resume</button>
         <button onClick={() => setPage("jobs")}>Jobs</button>
         <button onClick={() => setPage("analysis")}>Analysis</button>
+        <button onClick={() => setPage("history")}>History</button>
       </div>
       <div className="footer-col">
         <h4>Resources</h4>
         <button onClick={() => setPage("how-it-works")}>How It Works</button>
         <button onClick={onDemo}>Demo</button>
+        {projectConfig.social.documentation && <a href={projectConfig.social.documentation} target="_blank" rel="noopener noreferrer">Documentation</a>}
+      </div>
+      <div className="footer-col">
+        <h4>Company</h4>
         <button onClick={() => setPage("about")}>About</button>
+        <button onClick={() => setPage("team")}>Team</button>
+        {projectConfig.social.contact && <a href={projectConfig.social.contact} target="_blank" rel="noopener noreferrer">Contact</a>}
       </div>
       <div className="footer-col">
         <h4>Connect</h4>
-        <a href="https://github.com/Tanmaysavaj/cutc-IntelliApply" target="_blank" rel="noopener noreferrer">GitHub</a>
+        {projectConfig.social.github && <a href={projectConfig.social.github} target="_blank" rel="noopener noreferrer">GitHub</a>}
+        {projectConfig.social.linkedin && <a href={projectConfig.social.linkedin} target="_blank" rel="noopener noreferrer">LinkedIn</a>}
+      </div>
+      <div className="footer-col">
+        <h4>Legal</h4>
+        <button className="footer-legal-link" aria-label="Privacy policy (coming soon)">Privacy</button>
+        <button className="footer-legal-link" aria-label="Terms of service (coming soon)">Terms</button>
+        <button className="footer-legal-link footer-ai-disclaimer-link" aria-label="AI Disclaimer">AI Disclaimer</button>
       </div>
     </div>
+    <div className="footer-disclaimer">
+      <p>{projectConfig.legal.aiDisclaimer}</p>
+    </div>
     <div className="footer-bottom">
-      <span>© 2026 IntelliApply</span>
-      <span>Built for CUTC Hackathon by Team IntelliApply</span>
+      <span>© {projectConfig.year} IntelliApply</span>
+      <span>Built for the {projectConfig.event}</span>
+      <span>Built by Team IntelliApply</span>
     </div>
   </footer>;
+}
+
+/* ─── TEAM PAGE ─── */
+function TeamPage({ setPage }: { setPage: (p: Page) => void }) {
+  return <>
+    <PageHeader title="Meet the Team" subtitle="Built by a small team solving a problem we've experienced ourselves." />
+    <div className="team-grid">
+      {projectConfig.team.map((member) => (
+        <div key={member.name} className="team-card">
+          <div className="team-avatar">{member.image ? <img src={member.image} alt={member.name} /> : <span>{member.name.split(" ").map(n => n[0]).join("").slice(0, 2)}</span>}</div>
+          <h3 className="team-name">{member.name}</h3>
+          <p className="team-role">{member.role}</p>
+          <p className="team-resp">{member.responsibilities}</p>
+          <div className="team-links">
+            {member.github && <a href={member.github} target="_blank" rel="noopener noreferrer" aria-label={`${member.name}'s GitHub`}>GitHub</a>}
+            {member.linkedin && <a href={member.linkedin} target="_blank" rel="noopener noreferrer" aria-label={`${member.name}'s LinkedIn`}>LinkedIn</a>}
+          </div>
+        </div>
+      ))}
+    </div>
+    <Card className="team-why-card">
+      <h3>Why We Built IntelliApply</h3>
+      <p>We experienced how fragmented and time-consuming the job application process can be.</p>
+      <p>IntelliApply started from that experience and grew into an idea for bringing job matching, skill analysis, application guidance and interview preparation into one place.</p>
+    </Card>
+    <div className="about-cta"><button className="btn secondary" onClick={() => setPage("landing")}>← Back Home</button></div>
+  </>;
 }
 
 /* ─── EXISTING LIVE PAGES (preserved) ─── */

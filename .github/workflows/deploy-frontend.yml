@@ -27,9 +27,35 @@ jobs:
         working-directory: frontend
         run: npm ci
 
+      # NEXT_PUBLIC_* values are inlined into the client bundle at build time, so
+      # they must be present in the environment of the build/deploy step itself.
+      # Without them the bundle shipped `http://localhost:8000` as the API URL and
+      # disabled auth, which made the deployed site look broken.
       - name: Deploy to Cloudflare Workers
         working-directory: frontend
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          # Public backend URL. Falls back to the Render deployment defined in
+          # frontend/lib/config.ts if this is not set.
+          NEXT_PUBLIC_API_URL: ${{ vars.NEXT_PUBLIC_API_URL || 'https://cutc-intelliapply.onrender.com' }}
+          # Supabase project URL + publishable anon key (safe to expose to the
+          # browser; RLS is what protects the data). Set these as repository
+          # secrets to enable sign-in.
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
         run: npx @vinext/cloudflare deploy
+
+      - name: Report auth configuration status
+        if: always()
+        run: |
+          if [ -n "${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}" ] && [ -n "${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}" ]; then
+            echo "✅ Supabase auth configured — the Sign In button will open a working sign-in form." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "⚠️ Supabase auth NOT configured." >> "$GITHUB_STEP_SUMMARY"
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo "The Sign In button is still visible, but it explains that accounts are unavailable." >> "$GITHUB_STEP_SUMMARY"
+            echo "To enable sign-in, add these repository secrets and re-run:" >> "$GITHUB_STEP_SUMMARY"
+            echo '  - `NEXT_PUBLIC_SUPABASE_URL`' >> "$GITHUB_STEP_SUMMARY"
+            echo '  - `NEXT_PUBLIC_SUPABASE_ANON_KEY`' >> "$GITHUB_STEP_SUMMARY"
+          fi

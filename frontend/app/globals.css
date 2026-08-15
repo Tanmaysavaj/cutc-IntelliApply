@@ -161,9 +161,9 @@
 .djc-footer .text-btn{margin-left:auto}
 
 /* ─── Analysis Sections (with nested scroll) ─── */
-.analysis-sections{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:18px;align-items:stretch}
+.analysis-sections{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:18px;align-items:start}
 .analysis-section-card{padding:24px}
-.analysis-section-card:not(.full-width){height:460px;display:flex;flex-direction:column}
+.analysis-section-card.scrollable{height:460px;display:flex;flex-direction:column;overflow-y:auto}
 .analysis-section-card:not(.full-width) > :not(h3){flex:1;overflow-y:auto;padding-right:6px}
 .analysis-section-card:not(.full-width) > :not(h3)::-webkit-scrollbar{width:6px}
 .analysis-section-card:not(.full-width) > :not(h3)::-webkit-scrollbar-track{background:transparent}

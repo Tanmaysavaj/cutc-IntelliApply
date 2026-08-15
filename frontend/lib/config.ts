@@ -49,7 +49,7 @@ export const projectConfig = {
       responsibilities: "Frontend implementation, components, application interface and frontend integration.",
       image: "",
       github: "",
-      linkedin: "",
+      linkedin: "https://www.linkedin.com/in/yeldanab",
     },
   ],
 

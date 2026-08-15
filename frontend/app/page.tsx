@@ -490,13 +490,13 @@ function DemoAnalysisContent({ analysis, data, setPage, selectJob }: { analysis:
     {/* Grid sections */}
     <div className="analysis-sections">
       {/* Why You Match */}
-      <Card className="analysis-section-card">
+      <Card className="analysis-section-card scrollable">
         <h3><span className="card-icon green">✓</span> Why You Match</h3>
         <ul className="section-list">{analysis.why_you_match.map((r, i) => <li key={i}>{r}</li>)}</ul>
       </Card>
 
       {/* Skill Gaps */}
-      <Card className="analysis-section-card">
+      <Card className="analysis-section-card scrollable">
         <h3><span className="card-icon orange">△</span> Skill Gaps</h3>
         <div className="skill-gap-list">
           {analysis.skill_gaps.map((gap, i) => <div key={i} className="skill-gap-item">
@@ -967,8 +967,8 @@ function AnalysisPage({ hasAnalysis, resumeData, jobData, startAnalysis, notify,
     {aiInsights?.summary && <Card className="analysis-summary-card"><h3>📋 AI Summary</h3><p className="analysis-summary-text">{aiInsights.summary}</p>{aiInsights?.application_recommendation && <div className={`recommendation-banner ${recClass === "green" ? "success" : "warning"}`}><span className="rec-icon">{recClass === "green" ? "✓" : "⚠"}</span><div><strong>Recommendation: {recLabel}</strong><p>{aiInsights.application_recommendation.reason}</p></div></div>}</Card>}
 
     <div className="analysis-sections">
-      {aiInsights?.why_you_match?.length > 0 && <Card className="analysis-section-card"><h3><span className="card-icon green">✓</span> Why You Match</h3><ul className="section-list">{aiInsights.why_you_match.map((r: string, i: number) => <li key={i}>{r}</li>)}</ul></Card>}
-      {aiInsights?.skill_gaps?.length > 0 && <Card className="analysis-section-card"><h3><span className="card-icon orange">△</span> Skill Gaps</h3><div className="skill-gap-list">{aiInsights.skill_gaps.map((gap: any, i: number) => <div key={i} className="skill-gap-item"><div className="sg-header"><span className="sg-skill">{gap.skill || gap}</span>{gap.importance && <span className={`sg-importance ${gap.importance}`}>{gap.importance === 'required' ? '🔴 Required' : '🟡 Preferred'}</span>}</div>{gap.reason && <p className="sg-reason">{gap.reason}</p>}{gap.recommendation && <div className="sg-rec"><span>💡</span><span>{gap.recommendation}</span></div>}</div>)}</div></Card>}
+      {aiInsights?.why_you_match?.length > 0 && <Card className="analysis-section-card scrollable"><h3><span className="card-icon green">✓</span> Why You Match</h3><ul className="section-list">{aiInsights.why_you_match.map((r: string, i: number) => <li key={i}>{r}</li>)}</ul></Card>}
+      {aiInsights?.skill_gaps?.length > 0 && <Card className="analysis-section-card scrollable"><h3><span className="card-icon orange">△</span> Skill Gaps</h3><div className="skill-gap-list">{aiInsights.skill_gaps.map((gap: any, i: number) => <div key={i} className="skill-gap-item"><div className="sg-header"><span className="sg-skill">{gap.skill || gap}</span>{gap.importance && <span className={`sg-importance ${gap.importance}`}>{gap.importance === 'required' ? '🔴 Required' : '🟡 Preferred'}</span>}</div>{gap.reason && <p className="sg-reason">{gap.reason}</p>}{gap.recommendation && <div className="sg-rec"><span>💡</span><span>{gap.recommendation}</span></div>}</div>)}</div></Card>}
       {strengths.length > 0 && <Card className="analysis-section-card"><h3><span className="card-icon green">☆</span> Matched Skills</h3><div className="matched-skills-grid">{strengths.slice(0, 8).map((s: any, i: number) => <span key={i} className="matched-skill">✓ {typeof s === 'string' ? s : (s?.skill || s?.name || JSON.stringify(s))}</span>)}</div></Card>}
       {gaps.length > 0 && <Card className="analysis-section-card"><h3><span className="card-icon orange">⚡</span> Missing Skills</h3><div className="missing-skills-grid">{gaps.slice(0, 8).map((g: any, i: number) => <span key={i} className="missing-skill">● {typeof g === 'string' ? g : (g?.skill || g?.name || JSON.stringify(g))}</span>)}</div></Card>}
       {aiInsights?.resume_improvements?.length > 0 && <Card className="analysis-section-card full-width"><h3><span className="card-icon purple">✎</span> Resume Improvements</h3><ul className="improvement-list">{aiInsights.resume_improvements.map((tip: string, i: number) => <li key={i}>{tip}</li>)}</ul></Card>}

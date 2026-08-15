@@ -16,7 +16,7 @@ const Icon = ({ children }: { children: React.ReactNode }) => <span className="i
 const navItems: { id: Page; label: string; icon: string }[] = [
   { id: "landing", label: "Home", icon: "⌂" }, { id: "resume", label: "Resume", icon: "▤" },
   { id: "jobs", label: "Jobs", icon: "▣" }, { id: "applications", label: "Applications", icon: "◈" }, { id: "analysis", label: "Analysis", icon: "↗" }, { id: "history", label: "History", icon: "◷" },
-  { id: "analytics", label: "Analytics", icon: "◉" },
+  { id: "analytics", label: "Analytics", icon: "▦" },
 ];
 
 export default function Home() {
@@ -174,10 +174,15 @@ function Topbar({ page, setPage, theme, toggleTheme, isDemo, onExitDemo, auth, o
 }
 
 function Sidebar({ page, setPage, isDemo, onExitDemo }: { page: Page; setPage: (p: Page) => void; isDemo: boolean; onExitDemo: () => void }) {
+  const mainNav = navItems.filter(i => !["history", "analytics"].includes(i.id));
+  const insightsNav = navItems.filter(i => ["history", "analytics"].includes(i.id));
   return <aside className="sidebar">
     <Brand onHome={() => setPage("landing")} />
     <nav className="side-nav">
-      {navItems.map(item => <button key={item.id} className={page === item.id ? "active" : ""} onClick={() => setPage(item.id)}><Icon>{item.icon}</Icon>{item.label}</button>)}
+      {mainNav.map(item => <button key={item.id} className={page === item.id ? "active" : ""} onClick={() => setPage(item.id)}><Icon>{item.icon}</Icon>{item.label}</button>)}
+      <div className="side-nav-divider" />
+      <span className="side-nav-section-label">Insights</span>
+      {insightsNav.map(item => <button key={item.id} className={page === item.id ? "active" : ""} onClick={() => setPage(item.id)}><Icon>{item.icon}</Icon>{item.label}</button>)}
     </nav>
     {isDemo && <button className="btn secondary compact-btn exit-demo-btn" onClick={onExitDemo}>Exit Demo</button>}
     <div className="side-note"><span className="brand-mark small">✦</span><div><strong>Smarter applications</strong><p>Clear insights for every opportunity.</p></div></div>

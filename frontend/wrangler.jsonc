@@ -1,0 +1,7 @@
+{
+  "name": "intelliapply",
+  "compatibility_flags": ["nodejs_compat"],
+  "assets": {
+    "binding": "ASSETS"
+  }
+}

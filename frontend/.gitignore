@@ -41,3 +41,6 @@ next-env.d.ts
 /.sites-runtime/
 /outputs/
 /work/
+
+# vinext font cache (regenerated during build with machine-specific paths)
+.vinext/fonts/*/style.css

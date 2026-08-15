@@ -4,8 +4,48 @@
  */
 
 import { getAccessToken } from './auth';
+import { deployment } from './config';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+const LOCAL_HOSTNAMES = new Set(['localhost', '127.0.0.1', '0.0.0.0', '[::1]', '::1']);
+
+function isLocalHostname(hostname: string): boolean {
+  return LOCAL_HOSTNAMES.has(hostname) || hostname.endsWith('.local');
+}
+
+/**
+ * Resolve the backend base URL.
+ *
+ * Priority:
+ *  1. `NEXT_PUBLIC_API_URL` when injected at build time (explicit wins).
+ *  2. In the browser: the production backend, unless we're served from a local
+ *     host, in which case the local backend.
+ *  3. On the server: production backend outside of dev builds.
+ *
+ * Step 2 is the important one. Previously this fell straight back to
+ * `http://localhost:8000`, so a deployed build with no env vars issued every
+ * request to the user's own machine and the whole app appeared broken.
+ */
+function resolveApiBaseUrl(): string {
+  const fromEnv = process.env.NEXT_PUBLIC_API_URL;
+  if (fromEnv && fromEnv.trim()) {
+    return fromEnv.trim().replace(/\/+$/, '');
+  }
+
+  if (typeof window !== 'undefined') {
+    return isLocalHostname(window.location.hostname)
+      ? deployment.developmentApiUrl
+      : deployment.productionApiUrl;
+  }
+
+  return process.env.NODE_ENV === 'development'
+    ? deployment.developmentApiUrl
+    : deployment.productionApiUrl;
+}
+
+const API_BASE_URL = resolveApiBaseUrl();
+
+/** The resolved backend base URL, exported for diagnostics/debugging. */
+export const apiBaseUrl = API_BASE_URL;
 
 /** Shared fetch wrapper that auto-attaches the Bearer token if authenticated. */
 async function authFetch(url: string, options: RequestInit = {}): Promise<Response> {

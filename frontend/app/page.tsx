@@ -151,17 +151,27 @@ function Topbar({ page, setPage, theme, toggleTheme, isDemo, onExitDemo, auth, o
   const links: { id: Page; label: string }[] = [{id:"landing",label:"Home"},{id:"resume",label:"Resume"},{id:"jobs",label:"Jobs"},{id:"applications",label:"Applications"},{id:"analysis",label:"Analysis"},{id:"history",label:"History"},{id:"analytics",label:"Analytics"}];
   const isLanding = page === "landing" && !isDemo;
   const [showUserMenu, setShowUserMenu] = useState(false);
+  const [showMobileNav, setShowMobileNav] = useState(false);
+
+  // Collapse the mobile nav whenever the active page changes.
+  useEffect(() => { setShowMobileNav(false); }, [page]);
+
+  const go = (id: Page) => { setPage(id); setShowMobileNav(false); };
+
   return <header className={`topbar ${isLanding ? "landing-topbar" : ""}`}>
-    {isLanding && <Brand onHome={() => setPage("landing")} />}
-    {isLanding && <nav className="top-nav">{links.map(link => <button key={link.id} className={page === link.id ? "active" : ""} onClick={() => setPage(link.id)}>{link.label}</button>)}</nav>}
-    {!isLanding && <div className="mobile-brand"><Brand compact onHome={() => setPage("landing")} /></div>}
+    {isLanding && <Brand onHome={() => go("landing")} />}
+    {isLanding && <nav className="top-nav">{links.map(link => <button key={link.id} className={page === link.id ? "active" : ""} onClick={() => go(link.id)}>{link.label}</button>)}</nav>}
+    {!isLanding && <div className="mobile-brand"><Brand compact onHome={() => go("landing")} /></div>}
     {isDemo && <span className="demo-badge">DEMO MODE</span>}
-    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-      {auth.configured && !auth.user && <button className="btn secondary compact-btn" onClick={onShowAuth}>Sign In</button>}
-      {auth.user && <div style={{ position: 'relative' }}>
-        <button className="auth-user-btn" onClick={() => setShowUserMenu(!showUserMenu)}>
+    <div className="topbar-actions">
+      {/* Always render an auth entry point while signed out. This used to be
+          gated on `auth.configured`, which silently removed the button from the
+          DOM whenever the Supabase env vars were missing from the build. */}
+      {!auth.user && !auth.loading && <button className="btn primary compact-btn signin-btn" onClick={onShowAuth}>Sign In</button>}
+      {auth.user && <div className="auth-user-wrap">
+        <button className="auth-user-btn" onClick={() => setShowUserMenu(!showUserMenu)} aria-expanded={showUserMenu} aria-haspopup="menu">
           <span className="user-avatar-sm">{(auth.user.name || auth.user.email || '?').slice(0, 2).toUpperCase()}</span>
-          {auth.user.name || auth.user.email.split('@')[0]}
+          <span className="auth-user-name">{auth.user.name || auth.user.email.split('@')[0]}</span>
         </button>
         {showUserMenu && <div className="auth-dropdown">
           <div className="user-info"><strong>{auth.user.name || 'User'}</strong><small>{auth.user.email}</small></div>
@@ -169,7 +179,9 @@ function Topbar({ page, setPage, theme, toggleTheme, isDemo, onExitDemo, auth, o
         </div>}
       </div>}
       <ThemeToggle theme={theme} toggleTheme={toggleTheme} />
+      {isLanding && <button className={`nav-toggle ${showMobileNav ? "open" : ""}`} onClick={() => setShowMobileNav(v => !v)} aria-label={showMobileNav ? "Close navigation menu" : "Open navigation menu"} aria-expanded={showMobileNav}><span /><span /><span /></button>}
     </div>
+    {isLanding && showMobileNav && <nav className="mobile-nav">{links.map(link => <button key={link.id} className={page === link.id ? "active" : ""} onClick={() => go(link.id)}>{link.label}</button>)}</nav>}
   </header>;
 }
 
@@ -223,6 +235,11 @@ function AuthModal({ onClose, auth, notify }: { onClose: () => void; auth: UseAu
       <button className="demo-close" onClick={onClose}>×</button>
       <div className="detail-icon">✦</div>
       <h2>{mode === "signin" ? "Sign In" : "Create Account"}</h2>
+      {!auth.configured ? <>
+        <p className="muted">Accounts aren&apos;t available in this deployment yet.</p>
+        <p className="auth-notice">Sign-in needs <code>NEXT_PUBLIC_SUPABASE_URL</code> and <code>NEXT_PUBLIC_SUPABASE_ANON_KEY</code> to be set at build time. Everything else — resume parsing, job extraction and match analysis — works without an account; your data is kept in this browser.</p>
+        <button className="btn primary auth-submit" onClick={onClose}>Continue without an account</button>
+      </> : <>
       <p className="muted">{mode === "signin" ? "Sign in to save your analyses." : "Create an account to persist your data."}</p>
       <form onSubmit={handleSubmit} className="auth-form">
         {mode === "signup" && <div className="auth-field"><label>Name</label><input type="text" value={name} onChange={e => setName(e.target.value)} placeholder="Your name" /></div>}
@@ -232,6 +249,7 @@ function AuthModal({ onClose, auth, notify }: { onClose: () => void; auth: UseAu
         <button className="btn primary auth-submit" type="submit" disabled={loading}>{loading ? "Processing…" : mode === "signin" ? "Sign In" : "Create Account"}</button>
       </form>
       <p className="auth-switch">{mode === "signin" ? <>No account? <button className="link-btn" onClick={() => { setMode("signup"); setError(""); }}>Sign up</button></> : <>Have an account? <button className="link-btn" onClick={() => { setMode("signin"); setError(""); }}>Sign in</button></>}</p>
+      </>}
     </div>
   </div>;
 }

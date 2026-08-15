@@ -4,6 +4,21 @@
  * Replace placeholder values with final links when available.
  */
 
+/**
+ * Deployed environment URLs.
+ *
+ * These are public, non-secret values. They are kept in source (rather than
+ * relying solely on `NEXT_PUBLIC_*` build-time env vars) so that a deploy which
+ * forgets to inject env vars still targets the real backend instead of silently
+ * falling back to `http://localhost:8000`.
+ */
+export const deployment = {
+  /** Production FastAPI backend (Render). */
+  productionApiUrl: "https://cutc-intelliapply.onrender.com",
+  /** Local backend used during development. */
+  developmentApiUrl: "http://localhost:8000",
+};
+
 export const projectConfig = {
   name: "IntelliApply",
   tagline: "Apply smarter. Prepare better.",

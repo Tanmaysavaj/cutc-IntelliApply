@@ -15,9 +15,13 @@ import {
   demoStats,
   latestDemoAnalysis,
   getDemoAnalysisForJob,
+  demoApplications,
+  getDemoApplication,
+  getDemoApplicationByJobId,
   type DemoJob,
   type DemoAnalysis,
   type DemoHistoryEntry,
+  type DemoApplication,
 } from "./data";
 
 export interface DemoState {
@@ -47,6 +51,9 @@ export interface DemoData {
   history: DemoHistoryEntry[];
   stats: typeof demoStats;
   latest: DemoAnalysis;
+  applications: DemoApplication[];
+  getApplication: (id: string) => DemoApplication | undefined;
+  getApplicationByJobId: (jobId: string) => DemoApplication | undefined;
 }
 
 export function useDemo() {
@@ -86,6 +93,9 @@ export function useDemo() {
     history: demoHistory,
     stats: demoStats,
     latest: latestDemoAnalysis,
+    applications: demoApplications,
+    getApplication: getDemoApplication,
+    getApplicationByJobId: getDemoApplicationByJobId,
   };
 
   return { state, actions, data };

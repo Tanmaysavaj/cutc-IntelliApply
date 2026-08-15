@@ -306,3 +306,113 @@ export function importData(data: { resume?: ResumeData | null; job?: StoredJobDa
     saveJob(data.job);
   }
 }
+
+// ============ APPLICATION HUB STORAGE ============
+
+const APP_STORAGE_KEYS = {
+  APPLICATIONS: 'intelliapply_applications',
+  APP_NOTES: 'intelliapply_app_notes',
+};
+
+export type ApplicationStatus = "SAVED" | "APPLIED" | "SCREENING" | "INTERVIEW" | "OFFER" | "REJECTED" | "WITHDRAWN";
+
+export interface StoredApplication {
+  id: string;
+  jobId: string;
+  analysisId: string;
+  company: string;
+  title: string;
+  location: string;
+  status: ApplicationStatus;
+  matchScore: number;
+  appliedDate: string | null;
+  interviewDate: string | null;
+  createdAt: string;
+  notes: string;
+}
+
+/**
+ * Save an application to localStorage
+ */
+export function saveApplication(app: StoredApplication): void {
+  try {
+    const apps = getApplications();
+    const existing = apps.findIndex(a => a.id === app.id);
+    if (existing >= 0) {
+      apps[existing] = app;
+    } else {
+      apps.unshift(app);
+    }
+    localStorage.setItem(APP_STORAGE_KEYS.APPLICATIONS, JSON.stringify(apps));
+  } catch (error) {
+    console.error('Failed to save application:', error);
+  }
+}
+
+/**
+ * Get all stored applications
+ */
+export function getApplications(): StoredApplication[] {
+  try {
+    const stored = localStorage.getItem(APP_STORAGE_KEYS.APPLICATIONS);
+    if (!stored) return [];
+    return JSON.parse(stored);
+  } catch (error) {
+    return [];
+  }
+}
+
+/**
+ * Get a single application by ID
+ */
+export function getApplicationById(id: string): StoredApplication | null {
+  const apps = getApplications();
+  return apps.find(a => a.id === id) || null;
+}
+
+/**
+ * Check if a job has already been saved as an application
+ */
+export function hasApplicationForJob(jobId: string): boolean {
+  const apps = getApplications();
+  return apps.some(a => a.jobId === jobId);
+}
+
+/**
+ * Update application status
+ */
+export function updateApplicationStatus(id: string, status: ApplicationStatus): void {
+  const apps = getApplications();
+  const app = apps.find(a => a.id === id);
+  if (app) {
+    app.status = status;
+    if (status === 'APPLIED' && !app.appliedDate) {
+      app.appliedDate = new Date().toISOString().split('T')[0];
+    }
+    localStorage.setItem(APP_STORAGE_KEYS.APPLICATIONS, JSON.stringify(apps));
+  }
+}
+
+/**
+ * Update application notes
+ */
+export function updateApplicationNotes(id: string, notes: string): void {
+  const apps = getApplications();
+  const app = apps.find(a => a.id === id);
+  if (app) {
+    app.notes = notes;
+    localStorage.setItem(APP_STORAGE_KEYS.APPLICATIONS, JSON.stringify(apps));
+  }
+}
+
+/**
+ * Update application interview date
+ */
+export function updateApplicationInterviewDate(id: string, date: string): void {
+  const apps = getApplications();
+  const app = apps.find(a => a.id === id);
+  if (app) {
+    app.interviewDate = date;
+    localStorage.setItem(APP_STORAGE_KEYS.APPLICATIONS, JSON.stringify(apps));
+  }
+}

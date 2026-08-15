@@ -1,9 +1,10 @@
 """IntelliApply API - FastAPI Backend for CUTC Hackathon."""
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
-from app.api import resume, jobs, analysis
+from app.api import resume, jobs, analysis, company
 
 # Initialize FastAPI application
 app = FastAPI(
@@ -13,6 +14,16 @@ app = FastAPI(
     docs_url="/api/docs",
     redoc_url="/api/redoc",
 )
+
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    """Global exception handler to prevent raw errors from reaching the frontend."""
+    return JSONResponse(
+        status_code=500,
+        content={"error": "An internal server error occurred. Please try again."},
+    )
+
 
 # Enable CORS for local frontend development
 app.add_middleware(
@@ -32,6 +43,7 @@ app.add_middleware(
 app.include_router(resume.router)
 app.include_router(jobs.router)
 app.include_router(analysis.router)
+app.include_router(company.router)
 
 
 @app.get("/api/health", tags=["Health"])

@@ -1,13 +1,18 @@
-"""Resume API routes for processing PDF resumes."""
+"""Resume API routes for processing PDF resumes.
+
+Supports two modes:
+- Authenticated: Parses resume, stores PDF in Supabase Storage, saves metadata to DB.
+- Unauthenticated (demo): Parses resume and returns result without persistence.
+"""
 
 import logging
 import tempfile
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Annotated
+from typing import Optional
 
-from fastapi import APIRouter, File, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from fastapi.responses import JSONResponse
 
 # Use relative imports to reach src module
@@ -20,8 +25,9 @@ from src.models.resume import Resume as ResumeModel
 from app.services.llm_service import ResumeExtractor
 from app.services.pdf_service import PDFExtractor
 from app.schemas.resume import ErrorResponse, ResumeResponse, ResumeResponseData
+from app.core.auth import get_optional_user
 
-# Configure logging - use stderr to avoid exposing sensitive data
+# Configure logging
 logger = logging.getLogger(__name__)
 logger.addHandler(logging.StreamHandler())
 logger.setLevel(logging.INFO)
@@ -39,6 +45,97 @@ router = APIRouter(
 # Maximum file size: 10MB
 MAX_FILE_SIZE = 10 * 1024 * 1024  # 10 MB
 
+STORAGE_BUCKET = "resumes"
+
+
+def _store_resume_in_supabase(user_id: str, resume_id: str, content: bytes, parsed_data: dict) -> str:
+    """Store resume PDF in Supabase Storage and metadata in database.
+    
+    Args:
+        user_id: Authenticated user's UUID
+        resume_id: Generated resume UUID
+        content: Raw PDF bytes
+        parsed_data: Structured resume data as dict
+        
+    Returns:
+        Storage file URL path
+    """
+    from app.core.supabase import get_supabase_client
+    
+    client = get_supabase_client()
+    
+    # Upload PDF to Supabase Storage: resumes/{user_id}/{resume_id}.pdf
+    storage_path = f"{user_id}/{resume_id}.pdf"
+    
+    try:
+        client.storage.from_(STORAGE_BUCKET).upload(
+            path=storage_path,
+            file=content,
+            file_options={"content-type": "application/pdf"},
+        )
+    except Exception as e:
+        # If bucket doesn't exist or upload fails, log but don't block
+        logger.error(f"Storage upload failed for resume {resume_id}: {e}")
+        # Try to create bucket and retry once
+        try:
+            client.storage.create_bucket(STORAGE_BUCKET, options={"public": False})
+            client.storage.from_(STORAGE_BUCKET).upload(
+                path=storage_path,
+                file=content,
+                file_options={"content-type": "application/pdf"},
+            )
+        except Exception as retry_err:
+            logger.error(f"Storage retry failed: {retry_err}")
+            storage_path = ""  # Continue without storage
+    
+    # Insert resume record into database
+    try:
+        client.table("resumes").insert({
+            "id": resume_id,
+            "user_id": user_id,
+            "file_url": storage_path,
+            "parsed_data": parsed_data,
+        }).execute()
+    except Exception as e:
+        logger.error(f"Database insert failed for resume {resume_id}: {e}")
+        raise RuntimeError(f"Failed to save resume: {e}")
+    
+    return storage_path
+
+
+@router.get("", tags=["Resume"])
+async def list_resumes(user_id: str = Depends(get_optional_user)):
+    """List resumes for the authenticated user."""
+    if not user_id:
+        return {"resumes": []}
+    
+    from app.core.supabase import get_supabase_client
+    client = get_supabase_client()
+    
+    try:
+        result = client.table("resumes").select("*").eq("user_id", user_id).order("created_at", desc=True).execute()
+        return {"resumes": result.data or []}
+    except Exception as e:
+        logger.error(f"Failed to list resumes: {e}")
+        return {"resumes": []}
+
+
+@router.get("/{resume_id}", tags=["Resume"])
+async def get_resume(resume_id: str, user_id: str = Depends(get_optional_user)):
+    """Get a specific resume by ID."""
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Authentication required")
+    
+    from app.core.supabase import get_supabase_client
+    client = get_supabase_client()
+    
+    try:
+        result = client.table("resumes").select("*").eq("id", resume_id).eq("user_id", user_id).single().execute()
+        return result.data
+    except Exception as e:
+        logger.error(f"Failed to get resume {resume_id}: {e}")
+        raise HTTPException(status_code=404, detail="Resume not found")
+
 
 @router.post(
     "",
@@ -49,11 +146,18 @@ MAX_FILE_SIZE = 10 * 1024 * 1024  # 10 MB
         500: {"description": "Processing error"},
     },
 )
-async def process_resume(resume: UploadFile = File(..., description="PDF resume file to process")):
+async def process_resume(
+    resume: UploadFile = File(..., description="PDF resume file to process"),
+    user_id: Optional[str] = Depends(get_optional_user),
+):
     """Process a PDF resume file and extract structured information.
+    
+    If authenticated, also stores the PDF in Supabase Storage and saves
+    parsed data to the database.
     
     Args:
         resume: PDF file uploaded via multipart/form-data
+        user_id: Optional authenticated user ID (from token)
         
     Returns:
         Structured resume data with extracted skills, experience, education, etc.
@@ -154,6 +258,16 @@ async def process_resume(resume: UploadFile = File(..., description="PDF resume 
             )
         
         logger.info(f"Successfully processed resume {resume_id}")
+        
+        # If authenticated, persist to Supabase
+        if user_id:
+            try:
+                parsed_dict = resume_data.model_dump() if hasattr(resume_data, 'model_dump') else resume_data.dict()
+                _store_resume_in_supabase(user_id, resume_id, content, parsed_dict)
+                logger.info(f"Resume {resume_id} persisted for user {user_id}")
+            except Exception as e:
+                logger.error(f"Failed to persist resume {resume_id}: {e}")
+                # Don't fail the request - still return the parsed data
         
         # Use actual UTC timestamp when processing completes
         extracted_at = datetime.now(timezone.utc)

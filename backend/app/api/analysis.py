@@ -23,7 +23,7 @@ import uuid
 from pathlib import Path
 from typing import Optional
 
-from fastapi import APIRouter, File, Form, UploadFile
+from fastapi import APIRouter, Depends, File, Form, UploadFile
 from fastapi.responses import JSONResponse
 
 # Use relative imports to reach src module
@@ -40,6 +40,7 @@ from app.services.ai_insights_service import AIInsightsService
 from app.schemas.resume import ErrorResponse
 from app.schemas.matching import MatchResult
 from app.schemas.ai_insights import AnalysisResponse, AIInsights, ApplicationRecommendation
+from app.core.auth import get_optional_user, get_current_user
 
 # Configure logging - use stderr to avoid exposing sensitive data
 logger = logging.getLogger(__name__)
@@ -58,6 +59,55 @@ router = APIRouter(
 
 # Maximum file size: 10MB
 MAX_FILE_SIZE = 10 * 1024 * 1024  # 10 MB
+
+
+@router.get("", tags=["Analysis"])
+async def list_analyses(user_id: str = Depends(get_current_user)):
+    """List all analyses for the authenticated user (history).
+    
+    Returns analyses ordered by most recent first.
+    """
+    from app.core.supabase import get_supabase_client
+    client = get_supabase_client()
+    
+    try:
+        result = (
+            client.table("analyses")
+            .select("id, match_score, created_at, result, jobs(title, company)")
+            .eq("user_id", user_id)
+            .order("created_at", desc=True)
+            .limit(50)
+            .execute()
+        )
+        return {"analyses": result.data or []}
+    except Exception as e:
+        logger.error(f"Failed to list analyses for user {user_id}: {e}")
+        return {"analyses": []}
+
+
+@router.get("/{analysis_id}", tags=["Analysis"])
+async def get_analysis(analysis_id: str, user_id: str = Depends(get_current_user)):
+    """Get a specific analysis by ID.
+    
+    Returns the full stored analysis result without regenerating.
+    """
+    from app.core.supabase import get_supabase_client
+    client = get_supabase_client()
+    
+    try:
+        result = (
+            client.table("analyses")
+            .select("*, jobs(title, company, url), resumes(file_url, parsed_data)")
+            .eq("id", analysis_id)
+            .eq("user_id", user_id)
+            .single()
+            .execute()
+        )
+        return result.data
+    except Exception as e:
+        logger.error(f"Failed to get analysis {analysis_id}: {e}")
+        from fastapi import HTTPException
+        raise HTTPException(status_code=404, detail="Analysis not found")
 
 
 def extract_resume_from_pdf(pdf_path: str) -> ResumeModel:
@@ -192,6 +242,9 @@ async def analyze_application(
     resume: UploadFile = File(..., description="PDF resume file to analyze (required)"),
     job_data: Optional[str] = Form(None, description="Processed job data as JSON (from /api/jobs endpoint, optional)"),
     job_description: Optional[str] = Form(None, description="Raw job description text (optional)"),
+    resume_id: Optional[str] = Form(None, description="Resume ID from /api/resume (for persistence linking)"),
+    job_id: Optional[str] = Form(None, description="Job ID from /api/jobs (for persistence linking)"),
+    user_id: Optional[str] = Depends(get_optional_user),
 ):
     """Analyze a job application by matching resume against job posting.
     
@@ -409,14 +462,72 @@ async def analyze_application(
                         reason=f"AI insights generation failed: {str(e)[:100]}",
                     )
                 
-                # Return combined analysis response
-                return AnalysisResponse(
+                # Build combined analysis response
+                analysis_response = AnalysisResponse(
                     success=True,
                     analysis_id=analysis_id,
                     status="completed",
                     match=match_result,
                     ai_insights=ai_insights,
                 )
+                
+                # If authenticated, persist analysis to Supabase
+                if user_id:
+                    try:
+                        from app.core.supabase import get_supabase_client
+                        client = get_supabase_client()
+                        
+                        # Build result JSON with full analysis data
+                        result_data = analysis_response.model_dump() if hasattr(analysis_response, 'model_dump') else analysis_response.dict()
+                        
+                        # Use provided resume_id/job_id or generate placeholders
+                        persist_resume_id = resume_id or str(uuid.uuid4())
+                        persist_job_id = job_id or str(uuid.uuid4())
+                        
+                        # If resume_id/job_id weren't provided, create placeholder records
+                        if not resume_id:
+                            try:
+                                resume_dict = resume_data.model_dump() if hasattr(resume_data, 'model_dump') else resume_data.dict()
+                                client.table("resumes").insert({
+                                    "id": persist_resume_id,
+                                    "user_id": user_id,
+                                    "file_url": "",
+                                    "parsed_data": resume_dict,
+                                }).execute()
+                            except Exception as e:
+                                logger.warning(f"Failed to create resume record for analysis: {e}")
+                        
+                        if not job_id:
+                            try:
+                                job_dict = job_posting.model_dump() if hasattr(job_posting, 'model_dump') else job_posting.dict()
+                                client.table("jobs").insert({
+                                    "id": persist_job_id,
+                                    "user_id": user_id,
+                                    "url": None,
+                                    "company": getattr(job_posting, 'company_name', None),
+                                    "title": getattr(job_posting, 'job_title', None),
+                                    "description": (job_description or "")[:5000],
+                                    "parsed_data": job_dict,
+                                }).execute()
+                            except Exception as e:
+                                logger.warning(f"Failed to create job record for analysis: {e}")
+                        
+                        # Insert analysis record
+                        client.table("analyses").insert({
+                            "id": analysis_id,
+                            "user_id": user_id,
+                            "resume_id": persist_resume_id,
+                            "job_id": persist_job_id,
+                            "match_score": match_result.overall_score,
+                            "result": result_data,
+                        }).execute()
+                        
+                        logger.info(f"Analysis {analysis_id} persisted for user {user_id}")
+                    except Exception as e:
+                        logger.error(f"Failed to persist analysis {analysis_id}: {e}")
+                        # Don't fail the request - still return analysis results
+                
+                return analysis_response
                 
             except Exception as e:
                 logger.error(f"Match calculation failed for analysis {analysis_id}: {str(e)}")

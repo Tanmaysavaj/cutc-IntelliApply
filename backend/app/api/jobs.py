@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Annotated, Optional
 from urllib.parse import urlparse, parse_qs
 
-from fastapi import APIRouter, File, Form, UploadFile
+from fastapi import APIRouter, Depends, File, Form, UploadFile
 from fastapi.responses import JSONResponse
 import requests
 
@@ -21,6 +21,7 @@ sys.path.insert(0, str(PathObj(__file__).resolve().parents[3]))
 from src.models.job import JobPosting as JobModel
 from app.services.pdf_service import PDFExtractor
 from app.schemas.resume import ErrorResponse
+from app.core.auth import get_optional_user
 
 # Configure logging - use stderr to avoid exposing sensitive data
 logger = logging.getLogger(__name__)
@@ -42,6 +43,23 @@ MAX_FILE_SIZE = 10 * 1024 * 1024  # 10 MB
 
 # Maximum URL fetch size: 5MB (usually HTML is much smaller)
 MAX_URL_CONTENT_SIZE = 5 * 1024 * 1024  # 5 MB
+
+
+@router.get("", tags=["Jobs"])
+async def list_jobs(user_id: Optional[str] = Depends(get_optional_user)):
+    """List jobs for the authenticated user."""
+    if not user_id:
+        return {"jobs": []}
+    
+    from app.core.supabase import get_supabase_client
+    client = get_supabase_client()
+    
+    try:
+        result = client.table("jobs").select("*").eq("user_id", user_id).order("created_at", desc=True).execute()
+        return {"jobs": result.data or []}
+    except Exception as e:
+        logger.error(f"Failed to list jobs: {e}")
+        return {"jobs": []}
 
 
 class ExtractionValidationError(Exception):
@@ -281,6 +299,7 @@ async def process_job(
     description: Annotated[
         Optional[str], Form(description="Optional job description text")
     ] = None,
+    user_id: Optional[str] = Depends(get_optional_user),
 ):
     """Process a job posting and extract structured information.
     
@@ -448,6 +467,29 @@ async def process_job(
         job_data.__dict__["extracted_at"] = extracted_at
         job_data.__dict__["job_id"] = job_id
         job_data.__dict__["extraction_source"] = extraction_source
+        
+        # If authenticated, persist job to Supabase
+        if user_id:
+            try:
+                from app.core.supabase import get_supabase_client
+                client = get_supabase_client()
+                
+                parsed_dict = job_data.model_dump() if hasattr(job_data, 'model_dump') else job_data.dict()
+                
+                client.table("jobs").insert({
+                    "id": job_id,
+                    "user_id": user_id,
+                    "url": url or None,
+                    "company": getattr(job_data, 'company_name', None),
+                    "title": getattr(job_data, 'job_title', None),
+                    "description": (description or job_text or "")[:5000],
+                    "parsed_data": parsed_dict,
+                }).execute()
+                
+                logger.info(f"Job {job_id} persisted for user {user_id}")
+            except Exception as e:
+                logger.error(f"Failed to persist job {job_id}: {e}")
+                # Don't fail the request - still return parsed data
         
         return job_data
         

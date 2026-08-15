@@ -12,6 +12,17 @@ interface ProcessJobInput {
   description?: string;
 }
 
+interface JobRecord {
+  id: string;
+  user_id: string;
+  url: string | null;
+  company: string | null;
+  title: string | null;
+  description: string | null;
+  parsed_data: Record<string, unknown>;
+  created_at: string;
+}
+
 export const jobsAPI = {
   /**
    * Process a job posting from URL, description, or PDF
@@ -34,16 +45,12 @@ export const jobsAPI = {
       formData.append('description', input.description);
     }
 
-    const response = await apiClient.postFormData<JobProcessingResponse>(
+    const response = await apiClient.postFormData<JobPosting>(
       '/api/jobs',
       formData
     );
 
-    if (!response.success || !response.data) {
-      throw new Error(response.error || 'Failed to process job');
-    }
-
-    return response.data;
+    return response;
   },
 
   /**
@@ -65,5 +72,12 @@ export const jobsAPI = {
    */
   async processJobFromPdf(file: File): Promise<JobPosting> {
     return this.processJob({ job_description_pdf: file });
+  },
+
+  /**
+   * List all jobs for the authenticated user
+   */
+  async listJobs(): Promise<{ jobs: JobRecord[] }> {
+    return apiClient.get<{ jobs: JobRecord[] }>('/api/jobs');
   },
 };

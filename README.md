@@ -64,7 +64,6 @@ Concrete resume improvement suggestions and interview preparation generated from
 ### Application Tracking
 Applications move through: `SAVED` → `APPLIED` → `SCREENING` → `INTERVIEW` → `OFFER` → `REJECTED` → `WITHDRAWN`. Notes and interview dates can be attached, and `applied_date` is set automatically on the move to `APPLIED`.
 
-> Note: the applications API currently stores records in memory per running server instance for the hackathon build. There is no `applications` table in the schema yet, and the live frontend shows an empty state — the full application experience is in Demo Mode.
 
 ### Application Analytics
 Totals, average match score, strong/moderate/low score distribution, and the skill gaps that keep showing up across your applications. Computed on the frontend from your local analysis history.

@@ -29,6 +29,7 @@ async def global_exception_handler(request: Request, exc: Exception):
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
+        "https://intelliapply.intelliapply.workers.dev",
         "http://localhost:3000",
         "http://127.0.0.1:3000",
         "http://localhost:5173",

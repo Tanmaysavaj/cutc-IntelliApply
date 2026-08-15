@@ -9,7 +9,7 @@ Upload a resume, add a job, and IntelliApply parses both, scores the match deter
 **One platform. The entire application journey.**
 
 - Live demo: https://intelliapply.intelliapply.workers.dev (Cloudflare Worker configured in `frontend/wrangler.jsonc`)
-- API: `<ADD API URL>` — no hosted backend is configured in this repo yet; run it locally
+- API: https://cutc-intelliapply.onrender.com 
 - GitHub: https://github.com/Tanmaysavaj/cutc-IntelliApply
 - Documentation: this README
 

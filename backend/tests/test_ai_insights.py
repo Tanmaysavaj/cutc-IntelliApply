@@ -177,7 +177,7 @@ class TestAIInsightsService:
         mock_llm_service.client.beta.chat.completions.parse.return_value = mock_response
         
         # Mock OPENROUTER_MODEL import
-        with patch('app.services.ai_insights_service.OPENROUTER_MODEL', 'test-model'):
+        with patch('src.config.OPENROUTER_MODEL', 'test-model'):
             # Create service instance
             service = AIInsightsService(mock_llm_service)
             

@@ -17,9 +17,6 @@ pymupdf
 tavily-python
 python-whois
 
-# UUID support
-uuid==1.30
-
 # Supabase (persistence and auth)
 supabase
 PyJWT

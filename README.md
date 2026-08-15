@@ -459,11 +459,6 @@ One test class in `test_matching.py` (`TestAnalysisEndpointWithAIInsights`) is c
 
 Known gap: the placeholder values committed in the root `.env.example` should be replaced with descriptive placeholders.
 
----
-
-## User Validation
-
-[Add verified user validation statistic here]
 
 ---
 
@@ -519,20 +514,8 @@ Links are listed in `frontend/lib/config.ts`.
 
 ---
 
-## Legacy CLI / Development Tools
-
-Before the web app, IntelliApply was a CLI. That code still lives in `src/` and is still a dependency of the backend, which imports its Pydantic models and its LLM, PDF, Tavily and WHOIS services.
-
-The Typer CLI itself (`src/main.py`, with `market`, `resume` and `advisor` commands) reads PDFs from `input/` directories and writes reports to `data/` and `reports/`. Those directories are gitignored and not present in the repo, and `typer` and `jinja2` are not listed in `backend/requirements.txt`, so the CLI needs its inputs and dependencies set up manually before it will run. It is kept for reference and for the shared services — the web app is the product.
-
----
-
 ## CUTC Hackathon 2026
 
 Built for the CUTC Hackathon 2026.
 
 ---
-
-## License
-
-License information will be added. No LICENSE file is currently present in this repository.

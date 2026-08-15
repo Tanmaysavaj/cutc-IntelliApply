@@ -9,3 +9,14 @@ __pycache__/
 backend/__pycache__/
 backend/.env
 src/services/__pycache__/tavily_service.*
+
+
+# Node modules (all locations)
+**/node_modules/
+
+# ui_frontend specific
+ui_frontend/.env
+ui_frontend/.openai/
+ui_frontend/.sites-runtime/
+ui_frontend/.vinext/
+ui_frontend/.wrangler/

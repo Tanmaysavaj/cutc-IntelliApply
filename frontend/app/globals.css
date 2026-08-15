@@ -410,6 +410,133 @@
 }
 
 
+/* ═══════════════════════════════════════════════════════════════
+   RE-ANALYZE FEATURE
+   ═══════════════════════════════════════════════════════════════ */
+.reanalyze-action{display:flex;justify-content:flex-end;margin:-8px 0 12px}
+.reanalyze-card{margin-bottom:16px}
+.reanalyze-card h3{margin:0 0 6px;font-size:17px;font-weight:760}
+.reanalyze-subtitle{color:var(--muted);font-size:14px;margin:0 0 18px}
+.reanalyze-resume-compare{display:flex;align-items:center;gap:16px;margin-bottom:18px;flex-wrap:wrap}
+.reanalyze-resume-item{display:flex;flex-direction:column;gap:4px;padding:14px 18px;background:var(--bg);border:1px solid var(--line);border-radius:11px;min-width:160px}
+.reanalyze-resume-item small{color:var(--muted);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em}
+.reanalyze-resume-item strong{font-size:14px;color:var(--text)}
+.reanalyze-arrow{font-size:20px;color:var(--primary);font-weight:800}
+.reanalyze-actions{display:flex;gap:10px;flex-wrap:wrap}
+
+/* Comparison Card */
+.comparison-card{margin-bottom:18px;border:1px solid color-mix(in srgb,var(--primary) 25%,var(--line));background:linear-gradient(135deg,var(--surface),color-mix(in srgb,var(--primary) 3%,var(--surface)))}
+.comparison-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px}
+.comparison-header h3{margin:0;font-size:17px;font-weight:760}
+.comparison-scores{display:flex;align-items:center;gap:20px;flex-wrap:wrap;margin-bottom:20px;padding:18px;background:var(--bg);border-radius:12px;border:1px solid var(--line)}
+.comparison-score-item{display:flex;flex-direction:column;align-items:center;gap:4px;min-width:100px}
+.comparison-score-item small{color:var(--muted);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em}
+.comparison-score-value{font-size:32px;font-weight:820;letter-spacing:-1px;color:var(--text)}
+.comparison-file{font-size:12px;color:var(--muted)}
+.comparison-arrow{display:flex;align-items:center;padding:0 8px}
+.comparison-improvement{display:flex;flex-direction:column;align-items:center;gap:2px;margin-left:auto;padding:10px 16px;background:color-mix(in srgb,var(--green) 8%,var(--surface));border-radius:10px;border:1px solid color-mix(in srgb,var(--green) 20%,var(--line))}
+.comparison-improvement-value{font-size:20px;font-weight:800}
+.comparison-improvement small{font-size:11px;color:var(--muted);font-weight:600}
+.comparison-section{margin-top:14px}
+.comparison-section h4{font-size:14px;font-weight:700;color:var(--muted);margin:0 0 10px}
+.comparison-improved-list,.comparison-gaps-list{list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:8px}
+.comparison-improved-list li,.comparison-gaps-list li{display:flex;align-items:flex-start;gap:8px;font-size:14px;color:var(--text);line-height:1.5}
+.comparison-improved-list li .card-icon{flex-shrink:0}
+.comparison-gaps-list li .card-icon{flex-shrink:0}
+
+@media(max-width:760px){
+  .reanalyze-resume-compare{flex-direction:column;align-items:stretch}
+  .reanalyze-arrow{text-align:center;transform:rotate(90deg)}
+  .comparison-scores{flex-direction:column;align-items:stretch}
+  .comparison-score-item{flex-direction:row;justify-content:space-between;min-width:auto}
+  .comparison-arrow{display:none}
+  .comparison-improvement{margin-left:0;flex-direction:row;justify-content:space-between}
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   APPLICATION ANALYTICS
+   ═══════════════════════════════════════════════════════════════ */
+.analytics-empty{text-align:center;padding:65px 30px}
+.analytics-empty>p{max-width:560px;margin:12px auto 25px;color:var(--muted);line-height:1.7}
+.analytics-empty .empty-illustration{display:flex;align-items:center;justify-content:center;color:var(--primary);font-size:48px;margin-bottom:10px}
+
+/* Summary Cards Grid */
+.analytics-summary-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:20px}
+.analytics-stat-card{display:flex;flex-direction:column;align-items:center;padding:22px 14px;background:var(--surface);border:1px solid var(--line);border-radius:14px;text-align:center;transition:transform .2s,box-shadow .2s}
+.analytics-stat-card:hover{transform:translateY(-2px);box-shadow:var(--shadow)}
+.analytics-stat-card.accent{border-color:color-mix(in srgb,var(--primary) 35%,var(--line));background:linear-gradient(135deg,var(--surface),color-mix(in srgb,var(--primary) 5%,var(--surface)))}
+.analytics-stat-icon{font-size:22px;color:var(--primary);margin-bottom:6px}
+.analytics-stat-value{font-size:30px;font-weight:820;letter-spacing:-1px;color:var(--primary);margin-bottom:4px}
+.analytics-stat-label{font-size:13px;font-weight:700;color:var(--text)}
+
+/* Analytics Section Cards */
+.analytics-section{margin-bottom:16px}
+.analytics-section h3{margin:0 0 14px;font-size:17px;font-weight:760}
+.analytics-section-subtitle{color:var(--muted);font-size:14px;margin:-8px 0 14px}
+
+/* Performance Bars */
+.analytics-performance-grid{display:flex;flex-direction:column;gap:14px}
+.perf-item{display:grid;grid-template-columns:140px 1fr 40px;gap:12px;align-items:center}
+.perf-label{font-size:13px;font-weight:600;color:var(--text)}
+.perf-bar{height:10px;background:var(--line);border-radius:10px;overflow:hidden}
+.perf-fill{height:100%;border-radius:10px;transition:width .6s ease}
+.perf-fill.green{background:var(--green)}
+.perf-fill.orange{background:var(--orange)}
+.perf-fill.red{background:var(--primary)}
+.perf-count{font-size:14px;font-weight:700;color:var(--text);text-align:right}
+
+/* Status Breakdown */
+.analytics-status-breakdown{display:flex;flex-direction:column;gap:12px}
+.status-row{display:grid;grid-template-columns:100px 1fr 40px;gap:12px;align-items:center}
+.status-label{font-size:13px;font-weight:600;color:var(--text);text-transform:capitalize}
+.status-bar{height:10px;background:var(--line);border-radius:10px;overflow:hidden}
+.status-fill{height:100%;border-radius:10px;transition:width .6s ease}
+.status-saved{background:var(--muted)}
+.status-applied{background:var(--primary)}
+.status-screening{background:var(--orange)}
+.status-interview{background:var(--green)}
+.status-offer{background:linear-gradient(90deg,var(--green),#18c97d)}
+.status-count{font-size:14px;font-weight:700;color:var(--text);text-align:right}
+
+/* Skill Gaps */
+.analytics-skill-gaps{display:flex;flex-direction:column;gap:12px}
+.skill-gap-row{display:grid;grid-template-columns:120px 1fr 60px;gap:12px;align-items:center}
+.skill-gap-name{font-size:13px;font-weight:650;color:var(--text)}
+.skill-gap-bar{height:8px;background:var(--line);border-radius:10px;overflow:hidden}
+.skill-gap-fill{height:100%;background:var(--orange);border-radius:10px;transition:width .6s ease}
+.skill-gap-count{font-size:12px;color:var(--muted);text-align:right;white-space:nowrap}
+
+/* Career Focus */
+.analytics-career-focus .career-focus-title{font-size:20px;font-weight:780;color:var(--primary);margin:0 0 6px;letter-spacing:-.4px}
+.analytics-career-focus .career-focus-desc{color:var(--muted);font-size:14px;line-height:1.6;margin:0}
+
+/* Insights List */
+.analytics-insights-list{list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:12px}
+.analytics-insights-list li{display:flex;align-items:flex-start;gap:10px;font-size:14px;color:var(--text);line-height:1.55;padding:12px 14px;background:var(--bg);border:1px solid var(--line);border-radius:10px}
+.insight-icon{flex-shrink:0;font-size:16px}
+
+/* Analytics Responsive */
+@media(max-width:1050px){
+  .analytics-summary-grid{grid-template-columns:repeat(2,1fr)}
+}
+@media(max-width:760px){
+  .analytics-summary-grid{grid-template-columns:1fr 1fr}
+  .perf-item{grid-template-columns:100px 1fr 35px}
+  .status-row{grid-template-columns:80px 1fr 35px}
+  .skill-gap-row{grid-template-columns:90px 1fr 55px}
+}
+@media(max-width:460px){
+  .analytics-summary-grid{grid-template-columns:1fr}
+  .perf-item{grid-template-columns:1fr}
+  .perf-label{margin-bottom:-6px}
+  .perf-count{text-align:left}
+  .status-row{grid-template-columns:1fr}
+  .status-label{margin-bottom:-6px}
+  .status-count{text-align:left}
+  .skill-gap-row{grid-template-columns:1fr}
+  .skill-gap-name{margin-bottom:-6px}
+  .skill-gap-count{text-align:left}
+}
 
 /* ═══════════════════════════════════════════════════════════════
    APPLICATION HUB

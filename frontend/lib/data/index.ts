@@ -12,6 +12,8 @@ export {
 } from "./demoAnalyses";
 export { demoHistory, demoStats, type DemoHistoryEntry } from "./demoHistory";
 export { demoCareerSnapshot } from "./demoCareer";
+export { demoAnalytics, type DemoAnalyticsData } from "./demoAnalytics";
+export { demoReanalyzeComparison, type DemoReanalyzeComparison } from "./demoReanalyze";
 export {
   demoApplications,
   getDemoApplication,
@@ -24,3 +26,4 @@ export {
   type ApplicationTimelineEvent,
   type ApplicationCoverLetter,
 } from "./demoApplications";
+

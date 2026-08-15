@@ -41,7 +41,7 @@ export const projectConfig = {
       responsibilities: "System integration, testing, product validation and overall quality.",
       image: "",
       github: "",
-      linkedin: "https://www.linkedin.com/in/nicole-zhang-nz/",
+      linkedin: "https://www.linkedin.com/in/samia-a-972797397/",
     },
     {
       name: "Yeldana",

@@ -7,14 +7,16 @@ import type { StoredJobData, AnalysisHistoryEntry } from "@/lib/storage";
 import { useDemo } from "@/lib/useDemo";
 import { useAuth, type UseAuthReturn } from "@/lib/useAuth";
 import type { DemoAnalysis, DemoJob, DemoApplication, ApplicationStatus } from "@/lib/data";
-import { demoCareerSnapshot, STATUS_CONFIG, APPLICATION_STATUSES, getDemoApplicationByJobId } from "@/lib/data";
+import { demoCareerSnapshot, demoAnalytics, demoReanalyzeComparison, STATUS_CONFIG, APPLICATION_STATUSES, getDemoApplicationByJobId } from "@/lib/data";
+import type { DemoAnalyticsData, DemoReanalyzeComparison } from "@/lib/data";
 import { projectConfig } from "@/lib/config";
 
-type Page = "landing" | "resume" | "jobs" | "analysis" | "history" | "applications" | "application-detail" | "how-it-works" | "about" | "team";
+type Page = "landing" | "resume" | "jobs" | "analysis" | "history" | "analytics" | "applications" | "application-detail" | "how-it-works" | "about" | "team";
 const Icon = ({ children }: { children: React.ReactNode }) => <span className="icon" aria-hidden="true">{children}</span>;
 const navItems: { id: Page; label: string; icon: string }[] = [
   { id: "landing", label: "Home", icon: "⌂" }, { id: "resume", label: "Resume", icon: "▤" },
   { id: "jobs", label: "Jobs", icon: "▣" }, { id: "applications", label: "Applications", icon: "◈" }, { id: "analysis", label: "Analysis", icon: "↗" }, { id: "history", label: "History", icon: "◷" },
+  { id: "analytics", label: "Analytics", icon: "▦" },
 ];
 
 export default function Home() {
@@ -121,6 +123,8 @@ export default function Home() {
         {page === "analysis" && isDemo && <DemoAnalysisPage analysis={selectedAnalysis} data={demo.data} setPage={setPage} selectJob={selectJob} />}
         {page === "history" && !isDemo && <HistoryPage hasAnalysis={hasAnalysis} jobSource={jobSource} setPage={setPage} analysisResult={analysisResult} />}
         {page === "history" && isDemo && <DemoHistoryPage data={demo.data} selectJob={selectJob} setPage={setPage} setSelectedAppId={setSelectedAppId} />}
+        {page === "analytics" && !isDemo && <AnalyticsPage setPage={setPage} />}
+        {page === "analytics" && isDemo && <DemoAnalyticsPage setPage={setPage} />}
         {page === "applications" && isDemo && <DemoApplicationsPage data={demo.data} setPage={setPage} setSelectedAppId={setSelectedAppId} />}
         {page === "applications" && !isDemo && <ApplicationsEmptyPage setPage={setPage} />}
         {page === "application-detail" && isDemo && <DemoApplicationDetailPage data={demo.data} appId={selectedAppId} setPage={setPage} setSelectedAppId={setSelectedAppId} selectJob={selectJob} />}
@@ -144,7 +148,7 @@ function Brand({ compact = false, onHome }: { compact?: boolean; onHome: () => v
 function ThemeToggle({ theme, toggleTheme }: { theme: "light" | "dark"; toggleTheme: () => void }) { return <button className="theme-toggle" onClick={toggleTheme} aria-label={`Switch to ${theme === "light" ? "dark" : "light"} mode`}><span className={theme === "light" ? "active" : ""}>☀</span><span className={theme === "dark" ? "active" : ""}>☾</span></button>; }
 
 function Topbar({ page, setPage, theme, toggleTheme, isDemo, onExitDemo, auth, onShowAuth }: { page: Page; setPage: (p: Page) => void; theme: "light" | "dark"; toggleTheme: () => void; isDemo: boolean; onExitDemo: () => void; auth: UseAuthReturn; onShowAuth: () => void }) {
-  const links: { id: Page; label: string }[] = [{id:"landing",label:"Home"},{id:"resume",label:"Resume"},{id:"jobs",label:"Jobs"},{id:"applications",label:"Applications"},{id:"analysis",label:"Analysis"},{id:"history",label:"History"}];
+  const links: { id: Page; label: string }[] = [{id:"landing",label:"Home"},{id:"resume",label:"Resume"},{id:"jobs",label:"Jobs"},{id:"applications",label:"Applications"},{id:"analysis",label:"Analysis"},{id:"history",label:"History"},{id:"analytics",label:"Analytics"}];
   const isLanding = page === "landing" && !isDemo;
   const [showUserMenu, setShowUserMenu] = useState(false);
   return <header className={`topbar ${isLanding ? "landing-topbar" : ""}`}>
@@ -170,10 +174,15 @@ function Topbar({ page, setPage, theme, toggleTheme, isDemo, onExitDemo, auth, o
 }
 
 function Sidebar({ page, setPage, isDemo, onExitDemo }: { page: Page; setPage: (p: Page) => void; isDemo: boolean; onExitDemo: () => void }) {
+  const mainNav = navItems.filter(i => !["history", "analytics"].includes(i.id));
+  const insightsNav = navItems.filter(i => ["history", "analytics"].includes(i.id));
   return <aside className="sidebar">
     <Brand onHome={() => setPage("landing")} />
     <nav className="side-nav">
-      {navItems.map(item => <button key={item.id} className={page === item.id ? "active" : ""} onClick={() => setPage(item.id)}><Icon>{item.icon}</Icon>{item.label}</button>)}
+      {mainNav.map(item => <button key={item.id} className={page === item.id ? "active" : ""} onClick={() => setPage(item.id)}><Icon>{item.icon}</Icon>{item.label}</button>)}
+      <div className="side-nav-divider" />
+      <span className="side-nav-section-label">Insights</span>
+      {insightsNav.map(item => <button key={item.id} className={page === item.id ? "active" : ""} onClick={() => setPage(item.id)}><Icon>{item.icon}</Icon>{item.label}</button>)}
     </nav>
     {isDemo && <button className="btn secondary compact-btn exit-demo-btn" onClick={onExitDemo}>Exit Demo</button>}
     <div className="side-note"><span className="brand-mark small">✦</span><div><strong>Smarter applications</strong><p>Clear insights for every opportunity.</p></div></div>
@@ -469,6 +478,7 @@ function DemoAnalysisPage({ analysis, data, setPage, selectJob }: { analysis: De
 }
 
 function DemoAnalysisContent({ analysis, data, setPage, selectJob }: { analysis: DemoAnalysis; data: any; setPage: (p: Page) => void; selectJob: (id: string) => void }) {
+  const [showDemoComparison, setShowDemoComparison] = useState(false);
   const recLabel = getRecommendationLabel(analysis.recommendation);
   const recClass = getRecommendationClass(analysis.recommendation);
   const scoreColor = analysis.overall_score >= 80 ? "var(--green)" : analysis.overall_score >= 60 ? "var(--orange)" : "var(--primary)";
@@ -488,6 +498,16 @@ function DemoAnalysisContent({ analysis, data, setPage, selectJob }: { analysis:
       <div className="analysis-score" style={{ borderColor: scoreColor }}><strong style={{ color: scoreColor }}>{analysis.overall_score}%</strong><span>Match Score</span></div>
       <div className="role"><div><small>OPPORTUNITY</small><strong>{analysis.job_title}</strong><span>{analysis.company_name} · {analysis.location}</span></div><b className={recClass === "green" ? "" : "warning"}>{recLabel}</b></div>
     </Card>
+
+    {/* Demo Re-Analyze Action */}
+    {!showDemoComparison && (
+      <div className="reanalyze-action">
+        <button className="btn secondary small-btn" onClick={() => setShowDemoComparison(true)}>↻ Re-analyze with another resume</button>
+      </div>
+    )}
+
+    {/* Demo Comparison */}
+    {showDemoComparison && <DemoComparisonCard onDismiss={() => setShowDemoComparison(false)} />}
 
     {/* Score Breakdown */}
     <Card className="score-breakdown">
@@ -590,6 +610,172 @@ function DemoHistoryPage({ data, selectJob, setPage, setSelectedAppId }: { data:
           </span>
         </div>;
       })}
+    </Card>
+  </>;
+}
+
+/* ─── ANALYTICS PAGE (Live Mode) ─── */
+function AnalyticsPage({ setPage }: { setPage: (p: Page) => void }) {
+  const history = getHistory();
+
+  // If no history, show empty state
+  if (history.length === 0) {
+    return <>
+      <PageHeader title="Application Analytics" subtitle="Your career analytics will appear here." />
+      <Card className="analytics-empty">
+        <div className="empty-illustration"><span>◈</span></div>
+        <h2>No analytics yet.</h2>
+        <p>Once you analyze and save a few applications, IntelliApply will show your application patterns, match performance and common skill gaps.</p>
+        <button className="btn primary" onClick={() => setPage("jobs")}>Explore Jobs</button>
+      </Card>
+    </>;
+  }
+
+  // Derive analytics from history
+  const totalApplications = history.length;
+  const scores = history.map(h => h.overall_score);
+  const averageMatch = Math.round(scores.reduce((s, v) => s + v, 0) / scores.length);
+  const strong = scores.filter(s => s >= 80).length;
+  const moderate = scores.filter(s => s >= 60 && s < 80).length;
+  const low = scores.filter(s => s < 60).length;
+
+  // Derive skill gaps from analysis data
+  const allGaps: string[] = [];
+  history.forEach(h => {
+    const gaps = h.analysisData?.match?.gaps || [];
+    gaps.forEach((g: any) => { allGaps.push(typeof g === 'string' ? g : (g?.skill || '')); });
+    const aiGaps = h.analysisData?.ai_insights?.skill_gaps || [];
+    aiGaps.forEach((g: any) => { if (g?.skill) allGaps.push(g.skill); });
+  });
+  const gapCounts: Record<string, number> = {};
+  allGaps.filter(Boolean).forEach(g => { gapCounts[g] = (gapCounts[g] || 0) + 1; });
+  const commonSkillGaps = Object.entries(gapCounts)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 6)
+    .map(([skill, count]) => ({ skill, count }));
+
+  // Simple insights
+  const strongApps = history.filter(h => h.overall_score >= 80);
+  const strongAvg = strongApps.length > 0 ? Math.round(strongApps.reduce((s, h) => s + h.overall_score, 0) / strongApps.length) : 0;
+  const insights: string[] = [];
+  if (strongApps.length > 0) insights.push(`Your strongest applications have an average match of ${strongAvg}%.`);
+  if (commonSkillGaps.length > 0) insights.push(`${commonSkillGaps[0].skill} is currently your most common skill gap.`);
+  insights.push(`You have analyzed ${totalApplications} application${totalApplications > 1 ? 's' : ''} so far.`);
+
+  return <>
+    <PageHeader title="Application Analytics" subtitle="Insights derived from your application history." />
+
+    {/* Summary Cards */}
+    <div className="analytics-summary-grid">
+      <div className="analytics-stat-card"><span className="analytics-stat-icon">▣</span><div className="analytics-stat-value">{totalApplications}</div><div className="analytics-stat-label">Total Applications</div></div>
+      <div className="analytics-stat-card"><span className="analytics-stat-icon">◎</span><div className="analytics-stat-value">{averageMatch}%</div><div className="analytics-stat-label">Average Match</div></div>
+      <div className="analytics-stat-card accent"><span className="analytics-stat-icon">★</span><div className="analytics-stat-value">{strong}</div><div className="analytics-stat-label">Strong Matches</div></div>
+      <div className="analytics-stat-card"><span className="analytics-stat-icon">△</span><div className="analytics-stat-value">{commonSkillGaps.length}</div><div className="analytics-stat-label">Skill Gaps Found</div></div>
+    </div>
+
+    {/* Match Performance */}
+    <Card className="analytics-section">
+      <h3>Match Performance</h3>
+      <div className="analytics-performance-grid">
+        <div className="perf-item"><span className="perf-label">Strong (80–100)</span><div className="perf-bar"><div className="perf-fill green" style={{ width: `${totalApplications > 0 ? (strong / totalApplications) * 100 : 0}%` }}></div></div><span className="perf-count">{strong}</span></div>
+        <div className="perf-item"><span className="perf-label">Moderate (60–79)</span><div className="perf-bar"><div className="perf-fill orange" style={{ width: `${totalApplications > 0 ? (moderate / totalApplications) * 100 : 0}%` }}></div></div><span className="perf-count">{moderate}</span></div>
+        <div className="perf-item"><span className="perf-label">Low (0–59)</span><div className="perf-bar"><div className="perf-fill red" style={{ width: `${totalApplications > 0 ? (low / totalApplications) * 100 : 0}%` }}></div></div><span className="perf-count">{low}</span></div>
+      </div>
+    </Card>
+
+    {/* Common Skill Gaps */}
+    {commonSkillGaps.length > 0 && <Card className="analytics-section">
+      <h3>Most Common Skill Gaps</h3>
+      <div className="analytics-skill-gaps">
+        {commonSkillGaps.map(({ skill, count }) => (
+          <div key={skill} className="skill-gap-row">
+            <span className="skill-gap-name">{skill}</span>
+            <div className="skill-gap-bar"><div className="skill-gap-fill" style={{ width: `${(count / commonSkillGaps[0].count) * 100}%` }}></div></div>
+            <span className="skill-gap-count">{count} {count === 1 ? 'job' : 'jobs'}</span>
+          </div>
+        ))}
+      </div>
+    </Card>}
+
+    {/* Application Insights */}
+    {insights.length > 0 && <Card className="analytics-section">
+      <h3>Application Insights</h3>
+      <ul className="analytics-insights-list">
+        {insights.map((insight, i) => <li key={i}><span className="insight-icon">💡</span>{insight}</li>)}
+      </ul>
+    </Card>}
+  </>;
+}
+
+/* ─── DEMO ANALYTICS PAGE ─── */
+function DemoAnalyticsPage({ setPage }: { setPage: (p: Page) => void }) {
+  const data = demoAnalytics;
+  const totalStatus = data.statusBreakdown.saved + data.statusBreakdown.applied + data.statusBreakdown.screening + data.statusBreakdown.interview + data.statusBreakdown.offer;
+  const totalPerf = data.matchPerformance.strong + data.matchPerformance.moderate + data.matchPerformance.low;
+
+  return <>
+    <PageHeader title="Application Analytics" subtitle="Your career patterns and application insights." />
+
+    {/* Summary Cards */}
+    <div className="analytics-summary-grid">
+      <div className="analytics-stat-card"><span className="analytics-stat-icon">▣</span><div className="analytics-stat-value">{data.totalApplications}</div><div className="analytics-stat-label">Total Applications</div></div>
+      <div className="analytics-stat-card"><span className="analytics-stat-icon">🎤</span><div className="analytics-stat-value">{data.interviews}</div><div className="analytics-stat-label">Interviews</div></div>
+      <div className="analytics-stat-card accent"><span className="analytics-stat-icon">◎</span><div className="analytics-stat-value">{data.averageMatch}%</div><div className="analytics-stat-label">Average Match</div></div>
+      <div className="analytics-stat-card"><span className="analytics-stat-icon">↗</span><div className="analytics-stat-value">{data.interviewRate}%</div><div className="analytics-stat-label">Interview Rate</div></div>
+    </div>
+
+    {/* Application Status Breakdown */}
+    <Card className="analytics-section">
+      <h3>Application Status</h3>
+      <div className="analytics-status-breakdown">
+        {Object.entries(data.statusBreakdown).map(([status, count]) => (
+          <div key={status} className="status-row">
+            <span className="status-label">{status.charAt(0).toUpperCase() + status.slice(1)}</span>
+            <div className="status-bar"><div className={`status-fill status-${status}`} style={{ width: `${totalStatus > 0 ? (count / totalStatus) * 100 : 0}%` }}></div></div>
+            <span className="status-count">{count}</span>
+          </div>
+        ))}
+      </div>
+    </Card>
+
+    {/* Match Performance */}
+    <Card className="analytics-section">
+      <h3>Match Performance</h3>
+      <p className="analytics-section-subtitle">Average Match: <strong>{data.averageMatch}%</strong></p>
+      <div className="analytics-performance-grid">
+        <div className="perf-item"><span className="perf-label">Strong (80–100)</span><div className="perf-bar"><div className="perf-fill green" style={{ width: `${totalPerf > 0 ? (data.matchPerformance.strong / totalPerf) * 100 : 0}%` }}></div></div><span className="perf-count">{data.matchPerformance.strong}</span></div>
+        <div className="perf-item"><span className="perf-label">Moderate (60–79)</span><div className="perf-bar"><div className="perf-fill orange" style={{ width: `${totalPerf > 0 ? (data.matchPerformance.moderate / totalPerf) * 100 : 0}%` }}></div></div><span className="perf-count">{data.matchPerformance.moderate}</span></div>
+        <div className="perf-item"><span className="perf-label">Low (0–59)</span><div className="perf-bar"><div className="perf-fill red" style={{ width: `${totalPerf > 0 ? (data.matchPerformance.low / totalPerf) * 100 : 0}%` }}></div></div><span className="perf-count">{data.matchPerformance.low}</span></div>
+      </div>
+    </Card>
+
+    {/* Common Skill Gaps */}
+    <Card className="analytics-section">
+      <h3>Most Common Skill Gaps</h3>
+      <div className="analytics-skill-gaps">
+        {data.commonSkillGaps.map(({ skill, count }) => (
+          <div key={skill} className="skill-gap-row">
+            <span className="skill-gap-name">{skill}</span>
+            <div className="skill-gap-bar"><div className="skill-gap-fill" style={{ width: `${(count / data.commonSkillGaps[0].count) * 100}%` }}></div></div>
+            <span className="skill-gap-count">{count} jobs</span>
+          </div>
+        ))}
+      </div>
+    </Card>
+
+    {/* Career Focus */}
+    <Card className="analytics-section analytics-career-focus">
+      <h3>Your Career Focus</h3>
+      <p className="career-focus-title">{data.careerFocus}</p>
+      <p className="career-focus-desc">{data.careerDescription}</p>
+    </Card>
+
+    {/* Application Insights */}
+    <Card className="analytics-section">
+      <h3>Application Insights</h3>
+      <ul className="analytics-insights-list">
+        {data.insights.map((insight, i) => <li key={i}><span className="insight-icon">💡</span>{insight}</li>)}
+      </ul>
     </Card>
   </>;
 }
@@ -737,6 +923,7 @@ function Footer({ setPage, isDemo, onDemo }: { setPage: (p: Page) => void; isDem
         <button onClick={() => setPage("applications")}>Applications</button>
         <button onClick={() => setPage("analysis")}>Analysis</button>
         <button onClick={() => setPage("history")}>History</button>
+        <button onClick={() => setPage("analytics")}>Analytics</button>
       </div>
       <div className="footer-col">
         <h4>Resources</h4>
@@ -1181,6 +1368,11 @@ function JobsPage({ jobUrl, setJobUrl, setJobSource, processedJobData, setProces
 function AnalysisPage({ hasAnalysis, resumeData, jobData, startAnalysis, notify, resumeFile, setHasAnalysis, analysisResult, setAnalysisResult }: { hasAnalysis: boolean; resumeData: ResumeData | null; jobData: any; startAnalysis: () => void; notify: (v: string) => void; resumeFile: File | null; setHasAnalysis: (v: boolean) => void; analysisResult: any; setAnalysisResult: (v: any) => void }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showReanalyze, setShowReanalyze] = useState(false);
+  const [reanalyzeFile, setReanalyzeFile] = useState<File | null>(null);
+  const [reanalyzing, setReanalyzing] = useState(false);
+  const [comparison, setComparison] = useState<{ previous: any; current: any; previousFileName: string; currentFileName: string } | null>(null);
+  const reanalyzeFileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (jobData && !analysisResult && !loading && !error) { runRealAnalysis(); }
@@ -1218,6 +1410,46 @@ function AnalysisPage({ hasAnalysis, resumeData, jobData, startAnalysis, notify,
     } catch (err) {
       setError(err instanceof Error ? err.message : "Analysis failed");
     } finally { setLoading(false); }
+  };
+
+  const handleReanalyzeFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    if (!file.name.toLowerCase().endsWith('.pdf')) { notify("Please upload a PDF file"); return; }
+    if (file.size > 10 * 1024 * 1024) { notify("File too large. Maximum size is 10MB"); return; }
+    setReanalyzeFile(file);
+    if (event.target) event.target.value = "";
+  };
+
+  const runReanalysis = async () => {
+    if (!reanalyzeFile || !jobData) return;
+    setReanalyzing(true);
+    try {
+      const { runAnalysis } = await import("@/lib/api");
+      const jobPayload = jobData.data || jobData;
+      const result = await runAnalysis(reanalyzeFile, jobPayload);
+      if (result && !('error' in result)) {
+        const previousResult = analysisResult;
+        setComparison({
+          previous: previousResult,
+          current: result,
+          previousFileName: resumeFile?.name || "Previous Resume",
+          currentFileName: reanalyzeFile.name,
+        });
+        // Save new analysis to history without overwriting the previous
+        const jobInfo = jobData.data || jobData;
+        addToHistory({ id: (result as any).analysis_id || Date.now().toString(), date: new Date().toISOString(), job_title: jobInfo.job_title || 'Unknown', company_name: jobInfo.company_name || 'Unknown', location: jobInfo.location || '', overall_score: (result as any).match?.overall_score || 0, recommendation: (result as any).ai_insights?.application_recommendation?.recommendation || 'review', analysisData: result, jobData: jobInfo });
+        // Update current analysis to the new one
+        setAnalysisResult(result);
+        saveLastAnalysis(result);
+        setShowReanalyze(false);
+        notify("✓ Re-analysis complete!");
+      } else {
+        notify((result as any)?.error || "Re-analysis failed");
+      }
+    } catch (err) {
+      notify(err instanceof Error ? err.message : "Re-analysis failed");
+    } finally { setReanalyzing(false); }
   };
 
   if (!jobData) return <>
@@ -1258,6 +1490,41 @@ function AnalysisPage({ hasAnalysis, resumeData, jobData, startAnalysis, notify,
       <div className="role"><div><small>JOB OPPORTUNITY</small><strong>{jobInfo.job_title || "Job"}</strong><span>{jobInfo.company_name || "Company"} · {jobInfo.location || "Remote"}</span></div><b className={recClass === "green" ? "" : "warning"}>{recLabel}</b></div>
     </Card>
 
+    {/* Re-Analyze Action */}
+    {!showReanalyze && !comparison && (
+      <div className="reanalyze-action">
+        <button className="btn secondary small-btn" onClick={() => setShowReanalyze(true)}>↻ Re-analyze with another resume</button>
+      </div>
+    )}
+
+    {/* Re-Analyze Resume Selection */}
+    {showReanalyze && (
+      <Card className="reanalyze-card">
+        <h3>↻ Re-analyze with a different resume</h3>
+        <p className="reanalyze-subtitle">See how a different resume changes your match score for this job.</p>
+        <div className="reanalyze-resume-compare">
+          <div className="reanalyze-resume-item">
+            <small>Current Resume</small>
+            <strong>{resumeFile?.name || "Current Resume"}</strong>
+          </div>
+          <span className="reanalyze-arrow">→</span>
+          <div className="reanalyze-resume-item">
+            <small>New Resume</small>
+            {reanalyzeFile ? <strong>{reanalyzeFile.name}</strong> : <button className="btn secondary compact-btn" onClick={() => reanalyzeFileRef.current?.click()}>Select Resume</button>}
+          </div>
+        </div>
+        <div className="reanalyze-actions">
+          {reanalyzeFile && <button className="btn primary" onClick={runReanalysis} disabled={reanalyzing}>{reanalyzing ? "Analyzing..." : "Re-analyze"}</button>}
+          {reanalyzeFile && <button className="btn secondary compact-btn" onClick={() => reanalyzeFileRef.current?.click()}>Change File</button>}
+          <button className="btn secondary compact-btn" onClick={() => { setShowReanalyze(false); setReanalyzeFile(null); }}>Cancel</button>
+        </div>
+        <input ref={reanalyzeFileRef} className="sr-only" type="file" accept="application/pdf" onChange={handleReanalyzeFileSelect} />
+      </Card>
+    )}
+
+    {/* Comparison Results */}
+    {comparison && <ResumeComparisonCard comparison={comparison} onDismiss={() => setComparison(null)} />}
+
     {scoreBreakdown && Object.keys(scoreBreakdown).length > 0 && <Card className="score-breakdown"><h3>📊 Score Breakdown</h3><div className="breakdown-grid">{Object.entries(scoreBreakdown).map(([key, value]) => { const score = typeof value === 'number' ? value : (value as any)?.score ?? 0; const barColor = score >= 70 ? 'var(--green)' : score >= 40 ? 'var(--orange)' : 'var(--primary)'; return <div key={key} className="breakdown-item"><span className="breakdown-label">{key.replace(/_/g, ' ')}</span><div className="breakdown-bar"><div className="breakdown-fill" style={{ width: `${score}%`, background: barColor }}></div></div><span className="breakdown-value" style={{ color: barColor }}>{score}%</span></div>; })}</div></Card>}
 
     {aiInsights?.summary && <Card className="analysis-summary-card"><h3>📋 AI Summary</h3><p className="analysis-summary-text">{aiInsights.summary}</p>{aiInsights?.application_recommendation && <div className={`recommendation-banner ${recClass === "green" ? "success" : "warning"}`}><span className="rec-icon">{recClass === "green" ? "✓" : "⚠"}</span><div><strong>Recommendation: {recLabel}</strong><p>{aiInsights.application_recommendation.reason}</p></div></div>}</Card>}
@@ -1271,6 +1538,96 @@ function AnalysisPage({ hasAnalysis, resumeData, jobData, startAnalysis, notify,
       {aiInsights?.interview_focus?.length > 0 && <Card className="analysis-section-card full-width"><h3>🎯 Interview Preparation</h3><div className="interview-grid">{aiInsights.interview_focus.map((q: string, i: number) => <div className="interview-card" key={i}><span className="interview-num">{i + 1}</span><p>{q}</p></div>)}</div></Card>}
     </div>
   </>;
+}
+
+/* ─── RESUME COMPARISON CARD (Re-Analyze Feature) ─── */
+function ResumeComparisonCard({ comparison, onDismiss }: { comparison: { previous: any; current: any; previousFileName: string; currentFileName: string }; onDismiss: () => void }) {
+  const prevScore = comparison.previous?.match?.overall_score || 0;
+  const newScore = comparison.current?.match?.overall_score || 0;
+  const improvement = newScore - prevScore;
+  const improvementColor = improvement > 0 ? "var(--green)" : improvement < 0 ? "var(--primary)" : "var(--muted)";
+
+  // Derive what improved from comparing strengths
+  const prevStrengths = new Set(comparison.previous?.match?.strengths || []);
+  const newStrengths = comparison.current?.match?.strengths || [];
+  const whatImproved = newStrengths.filter((s: string) => !prevStrengths.has(s)).map((s: string) => `${s} experience identified`);
+
+  // Remaining gaps from new analysis
+  const remainingGaps = comparison.current?.match?.gaps || [];
+
+  return <Card className="comparison-card">
+    <div className="comparison-header">
+      <h3>📊 Resume Impact</h3>
+      <button className="btn secondary compact-btn" onClick={onDismiss}>✕ Dismiss</button>
+    </div>
+    <div className="comparison-scores">
+      <div className="comparison-score-item">
+        <small>Previous Match</small>
+        <strong className="comparison-score-value">{prevScore}%</strong>
+        <span className="comparison-file">{comparison.previousFileName}</span>
+      </div>
+      <div className="comparison-arrow">
+        <span style={{ color: improvementColor, fontWeight: 700, fontSize: '1.25rem' }}>→</span>
+      </div>
+      <div className="comparison-score-item">
+        <small>New Match</small>
+        <strong className="comparison-score-value" style={{ color: 'var(--green)' }}>{newScore}%</strong>
+        <span className="comparison-file">{comparison.currentFileName}</span>
+      </div>
+      <div className="comparison-improvement">
+        <span className="comparison-improvement-value" style={{ color: improvementColor }}>{improvement > 0 ? '+' : ''}{improvement} points</span>
+        <small>{improvement > 0 ? 'Improvement' : improvement < 0 ? 'Decrease' : 'No change'}</small>
+      </div>
+    </div>
+    {whatImproved.length > 0 && <div className="comparison-section">
+      <h4>What Improved</h4>
+      <ul className="comparison-improved-list">{whatImproved.slice(0, 5).map((item: string, i: number) => <li key={i}><span className="card-icon green">✓</span> {item}</li>)}</ul>
+    </div>}
+    {remainingGaps.length > 0 && <div className="comparison-section">
+      <h4>Remaining Gaps</h4>
+      <ul className="comparison-gaps-list">{remainingGaps.slice(0, 5).map((gap: string, i: number) => <li key={i}><span className="card-icon orange">⚠</span> {typeof gap === 'string' ? gap : (gap as any)?.skill || JSON.stringify(gap)}</li>)}</ul>
+    </div>}
+  </Card>;
+}
+
+/* ─── DEMO COMPARISON CARD (Re-Analyze Feature - Demo Mode) ─── */
+function DemoComparisonCard({ onDismiss }: { onDismiss: () => void }) {
+  const comp = demoReanalyzeComparison;
+  const improvementColor = comp.improvement > 0 ? "var(--green)" : "var(--primary)";
+
+  return <Card className="comparison-card">
+    <div className="comparison-header">
+      <h3>📊 Resume Impact</h3>
+      <button className="btn secondary compact-btn" onClick={onDismiss}>✕ Dismiss</button>
+    </div>
+    <div className="comparison-scores">
+      <div className="comparison-score-item">
+        <small>Previous Match</small>
+        <strong className="comparison-score-value">{comp.previousScore}%</strong>
+        <span className="comparison-file">{comp.previousResume}</span>
+      </div>
+      <div className="comparison-arrow">
+        <span style={{ color: improvementColor, fontWeight: 700, fontSize: '1.25rem' }}>→</span>
+      </div>
+      <div className="comparison-score-item">
+        <small>New Match</small>
+        <strong className="comparison-score-value" style={{ color: 'var(--green)' }}>{comp.newScore}%</strong>
+        <span className="comparison-file">{comp.newResume}</span>
+      </div>
+      <div className="comparison-improvement">
+        <span className="comparison-improvement-value" style={{ color: improvementColor }}>+{comp.improvement} points</span>
+        <small>Improvement</small>
+      </div>
+    </div>
+    <div className="comparison-section">
+      <h4>What Improved</h4>
+      <ul className="comparison-improved-list">{comp.whatImproved.map((item, i) => <li key={i}><span className="card-icon green">✓</span> {item}</li>)}</ul>
+    </div>
+    <div className="comparison-section">
+      <h4>Remaining Gaps</h4>
+      <ul className="comparison-gaps-list">{comp.remainingGaps.map((gap, i) => <li key={i}><span className="card-icon orange">⚠</span> {gap}</li>)}</ul>
+    </div>
+  </Card>;
 }
 
 function HistoryPage({ hasAnalysis, jobSource, setPage, analysisResult }: { hasAnalysis: boolean; jobSource: { kind: string; value: string }; setPage: (p: Page) => void; analysisResult: any }) {

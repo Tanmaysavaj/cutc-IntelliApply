@@ -1,8 +1,28 @@
 /**
  * API client for IntelliApply backend
+ * Auto-attaches Supabase access token for authenticated requests.
  */
 
+import { getAccessToken } from './auth';
+
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+
+/** Shared fetch wrapper that auto-attaches the Bearer token if authenticated. */
+async function authFetch(url: string, options: RequestInit = {}): Promise<Response> {
+  const token = await getAccessToken();
+  const headers = new Headers(options.headers || {});
+  if (token) {
+    headers.set('Authorization', `Bearer ${token}`);
+  }
+  const response = await fetch(url, { ...options, headers });
+
+  // Handle 401 - session expired
+  if (response.status === 401 && token) {
+    console.warn('[API] Session expired or invalid token');
+  }
+
+  return response;
+}
 
 // ============ RESUME TYPES ============
 export interface ResumeData {
@@ -91,7 +111,7 @@ export async function uploadResume(file: File): Promise<ResumeResponse> {
   const formData = new FormData();
   formData.append('resume', file);
 
-  const response = await fetch(`${API_BASE_URL}/api/resume`, {
+  const response = await authFetch(`${API_BASE_URL}/api/resume`, {
     method: 'POST',
     body: formData,
   });
@@ -112,7 +132,7 @@ export async function processJobFromDescription(description: string): Promise<Jo
   const formData = new FormData();
   formData.append('description', description);
 
-  const response = await fetch(`${API_BASE_URL}/api/jobs`, {
+  const response = await authFetch(`${API_BASE_URL}/api/jobs`, {
     method: 'POST',
     body: formData,
   });
@@ -169,7 +189,7 @@ export async function processJobFromPDF(file: File): Promise<JobProcessingRespon
   const formData = new FormData();
   formData.append('job_description_pdf', file);
 
-  const response = await fetch(`${API_BASE_URL}/api/jobs`, {
+  const response = await authFetch(`${API_BASE_URL}/api/jobs`, {
     method: 'POST',
     body: formData,
   });
@@ -227,7 +247,7 @@ export async function processJobFromURL(url: string): Promise<JobProcessingRespo
   const formData = new FormData();
   formData.append('url', url);
 
-  const response = await fetch(`${API_BASE_URL}/api/jobs`, {
+  const response = await authFetch(`${API_BASE_URL}/api/jobs`, {
     method: 'POST',
     body: formData,
   });
@@ -297,7 +317,7 @@ export async function processJobWithFallback(
     formData.append('url', url);
   }
 
-  const response = await fetch(`${API_BASE_URL}/api/jobs`, {
+  const response = await authFetch(`${API_BASE_URL}/api/jobs`, {
     method: 'POST',
     body: formData,
   });
@@ -353,7 +373,7 @@ export async function processJobWithFallback(
  * Check backend health
  */
 export async function checkHealth(): Promise<{ status: string; service: string }> {
-  const response = await fetch(`${API_BASE_URL}/api/health`);
+  const response = await authFetch(`${API_BASE_URL}/api/health`);
   
   if (!response.ok) {
     throw new Error(`Health check failed with status ${response.status}`);
@@ -422,7 +442,7 @@ export async function runAnalysis(
   }
 
   try {
-    const response = await fetch(`${API_BASE_URL}/api/analysis`, {
+    const response = await authFetch(`${API_BASE_URL}/api/analysis`, {
       method: 'POST',
       body: formData,
     });
@@ -454,7 +474,7 @@ export async function getApiInfo(): Promise<{
   jobs: string;
   analysis: string;
 }> {
-  const response = await fetch(`${API_BASE_URL}/`);
+  const response = await authFetch(`${API_BASE_URL}/`);
   
   if (!response.ok) {
     throw new Error(`API info fetch failed with status ${response.status}`);

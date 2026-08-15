@@ -143,7 +143,7 @@ function Topbar({ page, setPage, theme, toggleTheme, isDemo, onExitDemo, auth, o
   const [showUserMenu, setShowUserMenu] = useState(false);
   return <header className={`topbar ${isLanding ? "landing-topbar" : ""}`}>
     {isLanding && <Brand onHome={() => setPage("landing")} />}
-    {isLanding && <nav className="top-nav">{links.map(link => <button key={link.id} className={page === link.id ? "active" : ""} onClick={() => setPage(link.id)}>{link.label}</button>)}<button onClick={() => setPage("how-it-works")}>How It Works</button><button onClick={() => setPage("about")}>About</button><button onClick={() => setPage("team")}>Team</button></nav>}
+    {isLanding && <nav className="top-nav">{links.map(link => <button key={link.id} className={page === link.id ? "active" : ""} onClick={() => setPage(link.id)}>{link.label}</button>)}</nav>}
     {!isLanding && <div className="mobile-brand"><Brand compact onHome={() => setPage("landing")} /></div>}
     {isDemo && <span className="demo-badge">DEMO MODE</span>}
     <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>

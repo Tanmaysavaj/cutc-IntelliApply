@@ -160,10 +160,15 @@
 .djc-salary{color:var(--green);font-weight:600}
 .djc-footer .text-btn{margin-left:auto}
 
-/* ─── Analysis Sections (no nested scroll) ─── */
-.analysis-sections{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:18px;align-items:start}
+/* ─── Analysis Sections (with nested scroll) ─── */
+.analysis-sections{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:18px;align-items:stretch}
 .analysis-section-card{padding:24px}
-.analysis-section-card h3{display:flex;align-items:center;gap:10px;margin:0 0 16px;font-size:16px;font-weight:720}
+.analysis-section-card:not(.full-width){height:460px;display:flex;flex-direction:column}
+.analysis-section-card:not(.full-width) > :not(h3){flex:1;overflow-y:auto;padding-right:6px}
+.analysis-section-card:not(.full-width) > :not(h3)::-webkit-scrollbar{width:6px}
+.analysis-section-card:not(.full-width) > :not(h3)::-webkit-scrollbar-track{background:transparent}
+.analysis-section-card:not(.full-width) > :not(h3)::-webkit-scrollbar-thumb{background:var(--line);border-radius:99px}
+.analysis-section-card:not(.full-width) > :not(h3)::-webkit-scrollbar-thumb:hover{background:var(--muted)}
 .analysis-section-card.full-width{grid-column:1/-1}
 .section-list{padding-left:18px;color:var(--muted);line-height:1.75;font-size:14px}
 .section-list li{margin-bottom:8px}

@@ -25,7 +25,7 @@ export const projectConfig = {
       responsibilities: "Backend architecture, AI integration, analysis pipeline and system integration.",
       image: "",
       github: "",
-      linkedin: "",
+      linkedin: "https://www.linkedin.com/in/tanmaysavaj/",
     },
     {
       name: "Yashasvini",
@@ -33,7 +33,7 @@ export const projectConfig = {
       responsibilities: "User experience, interface design, visual system and product experience.",
       image: "",
       github: "",
-      linkedin: "",
+      linkedin: "https://www.linkedin.com/in/yashasvini-bhanuraj-0a7a13202",
     },
     {
       name: "Samia",

@@ -14,3 +14,16 @@ export { demoHistory, demoStats, type DemoHistoryEntry } from "./demoHistory";
 export { demoCareerSnapshot } from "./demoCareer";
 export { demoAnalytics, type DemoAnalyticsData } from "./demoAnalytics";
 export { demoReanalyzeComparison, type DemoReanalyzeComparison } from "./demoReanalyze";
+export {
+  demoApplications,
+  getDemoApplication,
+  getDemoApplicationByJobId,
+  getDemoApplicationsByStatus,
+  APPLICATION_STATUSES,
+  STATUS_CONFIG,
+  type DemoApplication,
+  type ApplicationStatus,
+  type ApplicationTimelineEvent,
+  type ApplicationCoverLetter,
+} from "./demoApplications";
+

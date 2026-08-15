@@ -6,17 +6,17 @@ import { saveResume, loadResume, saveJob, loadJob, saveResumeFile, loadResumeFil
 import type { StoredJobData, AnalysisHistoryEntry } from "@/lib/storage";
 import { useDemo } from "@/lib/useDemo";
 import { useAuth, type UseAuthReturn } from "@/lib/useAuth";
-import type { DemoAnalysis, DemoJob } from "@/lib/data";
-import { demoCareerSnapshot, demoAnalytics, demoReanalyzeComparison } from "@/lib/data";
+import type { DemoAnalysis, DemoJob, DemoApplication, ApplicationStatus } from "@/lib/data";
+import { demoCareerSnapshot, demoAnalytics, demoReanalyzeComparison, STATUS_CONFIG, APPLICATION_STATUSES, getDemoApplicationByJobId } from "@/lib/data";
 import type { DemoAnalyticsData, DemoReanalyzeComparison } from "@/lib/data";
 import { projectConfig } from "@/lib/config";
 
-type Page = "landing" | "resume" | "jobs" | "analysis" | "history" | "analytics" | "how-it-works" | "about" | "team";
+type Page = "landing" | "resume" | "jobs" | "analysis" | "history" | "analytics" | "applications" | "application-detail" | "how-it-works" | "about" | "team";
 const Icon = ({ children }: { children: React.ReactNode }) => <span className="icon" aria-hidden="true">{children}</span>;
 const navItems: { id: Page; label: string; icon: string }[] = [
   { id: "landing", label: "Home", icon: "⌂" }, { id: "resume", label: "Resume", icon: "▤" },
-  { id: "jobs", label: "Jobs", icon: "▣" }, { id: "analysis", label: "Analysis", icon: "↗" }, { id: "history", label: "History", icon: "◷" },
-  { id: "analytics", label: "Analytics", icon: "◈" },
+  { id: "jobs", label: "Jobs", icon: "▣" }, { id: "applications", label: "Applications", icon: "◈" }, { id: "analysis", label: "Analysis", icon: "↗" }, { id: "history", label: "History", icon: "◷" },
+  { id: "analytics", label: "Analytics", icon: "◉" },
 ];
 
 export default function Home() {
@@ -41,6 +41,9 @@ export default function Home() {
     return loadLastAnalysis();
   });
   const fileRef = useRef<HTMLInputElement>(null);
+
+  // Application Hub state
+  const [selectedAppId, setSelectedAppId] = useState<string | null>(null);
 
   // Demo mode
   const demo = useDemo();
@@ -111,7 +114,7 @@ export default function Home() {
       <Topbar page={page} setPage={setPage} theme={theme} toggleTheme={toggleTheme} isDemo={isDemo} onExitDemo={handleExitDemo} auth={auth} onShowAuth={() => setShowAuthModal(true)} />
       <div className={shell ? "page-wrap" : ""}>
         {page === "landing" && !isDemo && <LandingPage uploaded={uploaded} hasAnalysis={hasAnalysis} onStart={() => fileRef.current?.click()} onNext={() => setPage(uploaded ? "jobs" : "resume")} onAnalysis={() => setPage("analysis")} onDemo={handleEnterDemo} setPage={setPage} />}
-        {page === "landing" && isDemo && <DemoDashboard data={demo.data} setPage={setPage} selectJob={selectJob} />}
+        {page === "landing" && isDemo && <DemoDashboard data={demo.data} setPage={setPage} selectJob={selectJob} setSelectedAppId={setSelectedAppId} />}
         {page === "resume" && !isDemo && <ResumePage uploaded={uploaded} parsing={parsing} resumeData={resumeData} fileName={fileName} onUpload={() => fileRef.current?.click()} goToJobs={() => setPage("jobs")} />}
         {page === "resume" && isDemo && <DemoResumePage data={demo.data} />}
         {page === "jobs" && !isDemo && <JobsPage jobUrl={jobUrl} setJobUrl={setJobUrl} setJobSource={setJobSource} processedJobData={processedJobData} setProcessedJobData={setProcessedJobData} startAnalysis={startAnalysis} notify={notify} setPage={setPage} />}
@@ -119,9 +122,12 @@ export default function Home() {
         {page === "analysis" && !isDemo && <AnalysisPage hasAnalysis={hasAnalysis} resumeData={resumeData} jobData={processedJobData} startAnalysis={() => setPage("jobs")} notify={notify} resumeFile={resumeFile} setHasAnalysis={setHasAnalysis} analysisResult={analysisResult} setAnalysisResult={setAnalysisResult} />}
         {page === "analysis" && isDemo && <DemoAnalysisPage analysis={selectedAnalysis} data={demo.data} setPage={setPage} selectJob={selectJob} />}
         {page === "history" && !isDemo && <HistoryPage hasAnalysis={hasAnalysis} jobSource={jobSource} setPage={setPage} analysisResult={analysisResult} />}
-        {page === "history" && isDemo && <DemoHistoryPage data={demo.data} selectJob={selectJob} setPage={setPage} />}
+        {page === "history" && isDemo && <DemoHistoryPage data={demo.data} selectJob={selectJob} setPage={setPage} setSelectedAppId={setSelectedAppId} />}
         {page === "analytics" && !isDemo && <AnalyticsPage setPage={setPage} />}
         {page === "analytics" && isDemo && <DemoAnalyticsPage setPage={setPage} />}
+        {page === "applications" && isDemo && <DemoApplicationsPage data={demo.data} setPage={setPage} setSelectedAppId={setSelectedAppId} />}
+        {page === "applications" && !isDemo && <ApplicationsEmptyPage setPage={setPage} />}
+        {page === "application-detail" && isDemo && <DemoApplicationDetailPage data={demo.data} appId={selectedAppId} setPage={setPage} setSelectedAppId={setSelectedAppId} selectJob={selectJob} />}
         {page === "how-it-works" && <HowItWorksPage setPage={setPage} isDemo={isDemo} onDemo={handleEnterDemo} />}
         {page === "about" && <AboutPage setPage={setPage} />}
         {page === "team" && <TeamPage setPage={setPage} />}
@@ -142,7 +148,7 @@ function Brand({ compact = false, onHome }: { compact?: boolean; onHome: () => v
 function ThemeToggle({ theme, toggleTheme }: { theme: "light" | "dark"; toggleTheme: () => void }) { return <button className="theme-toggle" onClick={toggleTheme} aria-label={`Switch to ${theme === "light" ? "dark" : "light"} mode`}><span className={theme === "light" ? "active" : ""}>☀</span><span className={theme === "dark" ? "active" : ""}>☾</span></button>; }
 
 function Topbar({ page, setPage, theme, toggleTheme, isDemo, onExitDemo, auth, onShowAuth }: { page: Page; setPage: (p: Page) => void; theme: "light" | "dark"; toggleTheme: () => void; isDemo: boolean; onExitDemo: () => void; auth: UseAuthReturn; onShowAuth: () => void }) {
-  const links: { id: Page; label: string }[] = [{id:"landing",label:"Home"},{id:"resume",label:"Resume"},{id:"jobs",label:"Jobs"},{id:"analysis",label:"Analysis"},{id:"history",label:"History"},{id:"analytics",label:"Analytics"}];
+  const links: { id: Page; label: string }[] = [{id:"landing",label:"Home"},{id:"resume",label:"Resume"},{id:"jobs",label:"Jobs"},{id:"applications",label:"Applications"},{id:"analysis",label:"Analysis"},{id:"history",label:"History"},{id:"analytics",label:"Analytics"}];
   const isLanding = page === "landing" && !isDemo;
   const [showUserMenu, setShowUserMenu] = useState(false);
   return <header className={`topbar ${isLanding ? "landing-topbar" : ""}`}>
@@ -274,7 +280,7 @@ function LandingPage({ uploaded, hasAnalysis, onStart, onNext, onAnalysis, onDem
 }
 
 /* ─── DEMO DASHBOARD ─── */
-function DemoDashboard({ data, setPage, selectJob }: { data: any; setPage: (p: Page) => void; selectJob: (id: string) => void }) {
+function DemoDashboard({ data, setPage, selectJob, setSelectedAppId }: { data: any; setPage: (p: Page) => void; selectJob: (id: string) => void; setSelectedAppId: (id: string | null) => void }) {
   const { stats, jobs, analyses, latest } = data;
   const topJobs = analyses.slice(0, 3);
 
@@ -326,6 +332,24 @@ function DemoDashboard({ data, setPage, selectJob }: { data: any; setPage: (p: P
               <div className="activity-info"><strong>{a.job_title}</strong><small>{a.company_name} · {date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</small></div>
               <span className={`activity-score ${getRecommendationClass(a.recommendation)}`}>{a.overall_score}%</span>
               <span className={`rec-badge small ${getRecommendationClass(a.recommendation)}`}>{getRecommendationLabel(a.recommendation)}</span>
+            </div>;
+          })}
+        </div>
+      </Card>
+    </section>
+
+    {/* Recent Applications */}
+    <section className="recent-section">
+      <div className="section-heading"><h2>Recent Applications</h2><button className="text-btn" onClick={() => setPage("applications")}>View All Applications →</button></div>
+      <Card>
+        <div className="activity-list">
+          {data.applications.slice(0, 3).map((app: DemoApplication) => {
+            const statusConf = STATUS_CONFIG[app.status];
+            return <div key={app.id} className="activity-item" onClick={() => { setSelectedAppId(app.id); setPage("application-detail"); }}>
+              <span className="company-logo small">✦</span>
+              <div className="activity-info"><strong>{app.title}</strong><small>{app.company} · {app.appliedDate ? new Date(app.appliedDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : 'Saved'}</small></div>
+              <span className={`activity-score ${app.matchScore >= 80 ? 'green' : app.matchScore >= 60 ? 'orange' : ''}`}>{app.matchScore}%</span>
+              <span className={`app-status-badge ${statusConf.className}`}>{statusConf.label}</span>
             </div>;
           })}
         </div>
@@ -453,10 +477,14 @@ function DemoAnalysisContent({ analysis, data, setPage, selectJob }: { analysis:
   const recLabel = getRecommendationLabel(analysis.recommendation);
   const recClass = getRecommendationClass(analysis.recommendation);
   const scoreColor = analysis.overall_score >= 80 ? "var(--green)" : analysis.overall_score >= 60 ? "var(--orange)" : "var(--primary)";
+  const existingApp = data.getApplicationByJobId ? data.getApplicationByJobId(analysis.job_id) : null;
 
   return <>
     <PageHeader title="Job Match Analysis" subtitle="Detailed analysis of your resume against this opportunity.">
-      <div className="header-actions"><button className="btn secondary small-btn" onClick={() => setPage("jobs")}>← All Jobs</button></div>
+      <div className="header-actions">
+        <button className="btn secondary small-btn" onClick={() => setPage("jobs")}>← All Jobs</button>
+        {existingApp ? <button className="btn primary small-btn" onClick={() => setPage("applications")}>◈ View Application</button> : <button className="btn primary small-btn" onClick={() => setPage("applications")}>◈ Save Application</button>}
+      </div>
     </PageHeader>
 
     {/* Hero */}
@@ -556,7 +584,7 @@ function DemoAnalysisContent({ analysis, data, setPage, selectJob }: { analysis:
 }
 
 /* ─── DEMO HISTORY PAGE ─── */
-function DemoHistoryPage({ data, selectJob, setPage }: { data: any; selectJob: (id: string) => void; setPage: (p: Page) => void }) {
+function DemoHistoryPage({ data, selectJob, setPage, setSelectedAppId }: { data: any; selectJob: (id: string) => void; setPage: (p: Page) => void; setSelectedAppId: (id: string | null) => void }) {
   const { history } = data;
   return <>
     <PageHeader title="Application History" subtitle={`${history.length} analyses completed.`} />
@@ -566,11 +594,15 @@ function DemoHistoryPage({ data, selectJob, setPage }: { data: any; selectJob: (
         const date = new Date(entry.date);
         const recLabel = getRecommendationLabel(entry.recommendation);
         const recClass = getRecommendationClass(entry.recommendation);
+        const app = data.getApplicationByJobId ? data.getApplicationByJobId(entry.job_id) : null;
         return <div className="history-row" key={entry.id}>
           <span><strong>{date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</strong><small>{date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}</small></span>
           <span><strong>{entry.job_title}</strong><small>{entry.company_name} · {entry.location}</small></span>
           <span><b className={`history-score-val ${recClass}`}>{entry.overall_score}%</b><small className={recClass}>{recLabel}</small></span>
-          <button className="btn secondary compact-btn" onClick={() => { selectJob(entry.job_id); setPage("analysis"); }}>View Analysis →</button>
+          <span className="history-actions">
+            <button className="btn secondary compact-btn" onClick={() => { selectJob(entry.job_id); setPage("analysis"); }}>View Analysis →</button>
+            {app && <button className="btn primary compact-btn" onClick={() => { setSelectedAppId(app.id); setPage("application-detail"); }}>View Application</button>}
+          </span>
         </div>;
       })}
     </Card>
@@ -883,6 +915,7 @@ function Footer({ setPage, isDemo, onDemo }: { setPage: (p: Page) => void; isDem
         <button onClick={() => setPage("landing")}>Dashboard</button>
         <button onClick={() => setPage("resume")}>Resume</button>
         <button onClick={() => setPage("jobs")}>Jobs</button>
+        <button onClick={() => setPage("applications")}>Applications</button>
         <button onClick={() => setPage("analysis")}>Analysis</button>
         <button onClick={() => setPage("history")}>History</button>
         <button onClick={() => setPage("analytics")}>Analytics</button>
@@ -946,6 +979,269 @@ function TeamPage({ setPage }: { setPage: (p: Page) => void }) {
       <p>IntelliApply started from that experience and grew into an idea for bringing job matching, skill analysis, application guidance and interview preparation into one place.</p>
     </Card>
     <div className="about-cta"><button className="btn secondary" onClick={() => setPage("landing")}>← Back Home</button></div>
+  </>;
+}
+
+/* ─── APPLICATION HUB PAGES ─── */
+
+function ApplicationsEmptyPage({ setPage }: { setPage: (p: Page) => void }) {
+  return <>
+    <PageHeader title="Applications" subtitle="Your application workspace." />
+    <Card className="analysis-empty">
+      <div className="empty-illustration"><span>◈</span></div>
+      <h2>No applications yet.</h2>
+      <p>Save a job to keep your resume, job description, analysis and interview preparation together.</p>
+      <button className="btn primary" onClick={() => setPage("jobs")}>Explore Jobs</button>
+    </Card>
+  </>;
+}
+
+function DemoApplicationsPage({ data, setPage, setSelectedAppId }: { data: any; setPage: (p: Page) => void; setSelectedAppId: (id: string | null) => void }) {
+  const [filter, setFilter] = useState<ApplicationStatus | "ALL">("ALL");
+  const apps: DemoApplication[] = data.applications;
+  const filtered = filter === "ALL" ? apps : apps.filter((a: DemoApplication) => a.status === filter);
+
+  return <>
+    <PageHeader title="Applications" subtitle="Your application workspace — everything for every opportunity in one place." />
+
+    {/* Filter tabs */}
+    <div className="app-filter-tabs">
+      <button className={filter === "ALL" ? "active" : ""} onClick={() => setFilter("ALL")}>All ({apps.length})</button>
+      <button className={filter === "SAVED" ? "active" : ""} onClick={() => setFilter("SAVED")}>Saved</button>
+      <button className={filter === "APPLIED" ? "active" : ""} onClick={() => setFilter("APPLIED")}>Applied</button>
+      <button className={filter === "SCREENING" ? "active" : ""} onClick={() => setFilter("SCREENING")}>Screening</button>
+      <button className={filter === "INTERVIEW" ? "active" : ""} onClick={() => setFilter("INTERVIEW")}>Interview</button>
+      <button className={filter === "OFFER" ? "active" : ""} onClick={() => setFilter("OFFER")}>Offer</button>
+      <button className={filter === "REJECTED" ? "active" : ""} onClick={() => setFilter("REJECTED")}>Rejected</button>
+    </div>
+
+    {/* Application cards */}
+    {filtered.length === 0 && <Card className="analysis-empty"><h2>No applications with this status.</h2><p>Try a different filter or save more jobs.</p></Card>}
+
+    <div className="app-list">
+      {filtered.map((app: DemoApplication) => {
+        const statusConf = STATUS_CONFIG[app.status];
+        const scoreColor = app.matchScore >= 80 ? "green" : app.matchScore >= 60 ? "orange" : "";
+        return <Card key={app.id} className="app-card">
+          <div className="app-card-top">
+            <div className="app-card-company">
+              <span className="company-logo">✦</span>
+              <div>
+                <strong className="app-card-title">{app.title}</strong>
+                <small className="app-card-company-name">{app.company} · {app.location}</small>
+              </div>
+            </div>
+            <div className="app-card-meta">
+              <span className={`app-card-score ${scoreColor}`}>{app.matchScore}%<small>Match</small></span>
+            </div>
+          </div>
+          <div className="app-card-bottom">
+            <div className="app-card-info">
+              <span className={`app-status-badge ${statusConf.className}`}>{statusConf.label}</span>
+              {app.appliedDate && <span className="app-card-date">Applied: {new Date(app.appliedDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>}
+              {app.interviewDate && <span className="app-card-date interview-date">Interview: {new Date(app.interviewDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>}
+            </div>
+            <button className="btn primary compact-btn" onClick={() => { setSelectedAppId(app.id); setPage("application-detail"); }}>Open Application →</button>
+          </div>
+        </Card>;
+      })}
+    </div>
+  </>;
+}
+
+function DemoApplicationDetailPage({ data, appId, setPage, setSelectedAppId, selectJob }: { data: any; appId: string | null; setPage: (p: Page) => void; setSelectedAppId: (id: string | null) => void; selectJob: (id: string) => void }) {
+  const app: DemoApplication | undefined = appId ? data.getApplication(appId) : undefined;
+  const [status, setStatus] = useState<ApplicationStatus>(app?.status || "SAVED");
+  const [notes, setNotes] = useState(app?.notes || "");
+  const [showStatusMenu, setShowStatusMenu] = useState(false);
+  const [showCoverLetter, setShowCoverLetter] = useState(false);
+  const [showJobDesc, setShowJobDesc] = useState(false);
+
+  if (!app) {
+    return <>
+      <PageHeader title="Application" subtitle="Application not found.">
+        <div className="header-actions"><button className="btn secondary small-btn" onClick={() => setPage("applications")}>← Back to Applications</button></div>
+      </PageHeader>
+      <Card className="analysis-empty"><h2>Application not found</h2><p>This application may have been removed.</p><button className="btn primary" onClick={() => setPage("applications")}>View All Applications</button></Card>
+    </>;
+  }
+
+  const statusConf = STATUS_CONFIG[status];
+  const scoreColor = app.matchScore >= 80 ? "var(--green)" : app.matchScore >= 60 ? "var(--orange)" : "var(--primary)";
+
+  return <>
+    <PageHeader title="Application Package" subtitle="Everything you need for this application, in one place.">
+      <div className="header-actions"><button className="btn secondary small-btn" onClick={() => setPage("applications")}>← All Applications</button></div>
+    </PageHeader>
+
+    {/* Application Header */}
+    <Card className="app-detail-header">
+      <div className="app-detail-top">
+        <div className="app-detail-company">
+          <span className="company-logo large">✦</span>
+          <div>
+            <h2>{app.company}</h2>
+            <p className="app-detail-role">{app.title}</p>
+            <p className="app-detail-location">📍 {app.location}</p>
+          </div>
+        </div>
+        <div className="app-detail-score" style={{ borderColor: scoreColor }}>
+          <strong style={{ color: scoreColor }}>{app.matchScore}%</strong>
+          <span>Match</span>
+        </div>
+      </div>
+      <div className="app-detail-status-row">
+        <div className="app-detail-status-wrap" style={{ position: 'relative' }}>
+          <button className={`app-status-badge large ${statusConf.className}`} onClick={() => setShowStatusMenu(!showStatusMenu)}>● {statusConf.label} ▾</button>
+          {showStatusMenu && <div className="app-status-dropdown">
+            {APPLICATION_STATUSES.map(s => {
+              const conf = STATUS_CONFIG[s];
+              return <button key={s} className={`app-status-option ${s === status ? 'active' : ''}`} onClick={() => { setStatus(s); setShowStatusMenu(false); }}>{conf.label}</button>;
+            })}
+          </div>}
+        </div>
+        {app.appliedDate && <span className="app-detail-date">Applied {new Date(app.appliedDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>}
+        {app.interviewDate && <span className="app-detail-date interview-date">Interview {new Date(app.interviewDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>}
+      </div>
+      {status === "SAVED" && <button className="btn primary compact-btn" onClick={() => setStatus("APPLIED")} style={{ marginTop: '12px' }}>Mark as Applied</button>}
+    </Card>
+
+    {/* APPLICATION PACKAGE */}
+    <section className="app-package-section">
+      <h2 className="app-section-title">◈ Application Package</h2>
+      <p className="app-section-subtitle">Everything you need for this application is here.</p>
+      <div className="app-package-grid">
+        {/* Resume */}
+        <Card className="app-package-card">
+          <div className="app-pkg-icon">▤</div>
+          <h3>Resume</h3>
+          <p>Resume used for this application</p>
+          <span className="app-pkg-file">{app.resume.fileName}</span>
+          <button className="btn secondary compact-btn" onClick={() => setPage("resume")}>View Resume</button>
+        </Card>
+
+        {/* Cover Letter */}
+        <Card className="app-package-card">
+          <div className="app-pkg-icon">✉</div>
+          <h3>Cover Letter</h3>
+          {app.coverLetter ? <>
+            <p>Cover letter for this application</p>
+            <span className="app-pkg-file">{app.coverLetter.title}</span>
+            <button className="btn secondary compact-btn" onClick={() => setShowCoverLetter(true)}>View Cover Letter</button>
+          </> : <>
+            <p className="muted">No cover letter has been added yet.</p>
+            <button className="btn secondary compact-btn" disabled>Add Cover Letter</button>
+          </>}
+        </Card>
+
+        {/* Job Description */}
+        <Card className="app-package-card">
+          <div className="app-pkg-icon">▣</div>
+          <h3>Job Description</h3>
+          <p>Original job description used for analysis</p>
+          <span className="app-pkg-file">{app.job.company_name} — {app.job.job_title}</span>
+          <button className="btn secondary compact-btn" onClick={() => setShowJobDesc(true)}>View Job Description</button>
+        </Card>
+
+        {/* Match Analysis */}
+        <Card className="app-package-card">
+          <div className="app-pkg-icon">↗</div>
+          <h3>Match Analysis</h3>
+          <p>Your match analysis for this role</p>
+          <span className="app-pkg-file" style={{ color: scoreColor, fontWeight: 700 }}>{app.matchScore}% Match</span>
+          <button className="btn secondary compact-btn" onClick={() => { selectJob(app.jobId); setPage("analysis"); }}>View Analysis</button>
+        </Card>
+
+        {/* Interview Preparation */}
+        <Card className="app-package-card">
+          <div className="app-pkg-icon">🎯</div>
+          <h3>Interview Preparation</h3>
+          <p>{app.interviewPrep.technicalQuestions.length} technical, {app.interviewPrep.behavioralQuestions.length} behavioral questions</p>
+          <span className="app-pkg-file">{app.interviewPrep.topicsToReview.length} topics to review</span>
+          <button className="btn primary compact-btn" onClick={() => { selectJob(app.jobId); setPage("analysis"); }}>Start Preparation</button>
+        </Card>
+      </div>
+    </section>
+
+    {/* INTERVIEW PREPARATION PREVIEW */}
+    <section className="app-interview-section">
+      <h2 className="app-section-title">🎯 Prepare for Your Interview</h2>
+      <div className="app-interview-grid">
+        <Card className="app-interview-card">
+          <h4>Technical Questions</h4>
+          <ul className="app-interview-list">
+            {app.interviewPrep.technicalQuestions.map((q, i) => <li key={i}>{q}</li>)}
+          </ul>
+        </Card>
+        <Card className="app-interview-card">
+          <h4>Behavioral Questions</h4>
+          <ul className="app-interview-list">
+            {app.interviewPrep.behavioralQuestions.map((q, i) => <li key={i}>{q}</li>)}
+          </ul>
+        </Card>
+        <Card className="app-interview-card">
+          <h4>Topics To Review</h4>
+          <div className="skill-chips">{app.interviewPrep.topicsToReview.map(t => <span key={t}>{t}</span>)}</div>
+        </Card>
+      </div>
+    </section>
+
+    {/* APPLICATION TIMELINE */}
+    <section className="app-timeline-section">
+      <h2 className="app-section-title">◷ Application Timeline</h2>
+      <div className="app-timeline">
+        {app.timeline.map((event, i) => <div key={i} className="app-timeline-item">
+          <span className="app-timeline-dot" />
+          <div className="app-timeline-content">
+            <strong>{new Date(event.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</strong>
+            <span>{event.label}</span>
+          </div>
+        </div>)}
+      </div>
+    </section>
+
+    {/* NOTES */}
+    <section className="app-notes-section">
+      <h2 className="app-section-title">📝 Notes</h2>
+      <Card className="app-notes-card">
+        <textarea
+          className="app-notes-textarea"
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
+          placeholder="Add personal notes about this application..."
+          rows={4}
+        />
+      </Card>
+    </section>
+
+    {/* Cover Letter Modal */}
+    {showCoverLetter && app.coverLetter && <div className="detail-overlay" role="dialog" aria-modal="true">
+      <div className="detail-modal app-modal">
+        <button className="demo-close" onClick={() => setShowCoverLetter(false)}>×</button>
+        <h2>{app.coverLetter.title}</h2>
+        <div className="app-cover-letter-content"><pre>{app.coverLetter.content}</pre></div>
+      </div>
+    </div>}
+
+    {/* Job Description Modal */}
+    {showJobDesc && <div className="detail-overlay" role="dialog" aria-modal="true">
+      <div className="detail-modal app-modal">
+        <button className="demo-close" onClick={() => setShowJobDesc(false)}>×</button>
+        <h2>{app.job.company_name} — {app.job.job_title}</h2>
+        <div className="app-job-desc-content">
+          <div className="app-job-meta">
+            <span>📍 {app.job.location} · {app.job.remote_status}</span>
+            {app.job.experience_level && <span>📋 {app.job.experience_level}</span>}
+            {app.job.salary_range && <span>💰 {app.job.salary_range}</span>}
+          </div>
+          <h4>Required Skills</h4>
+          <div className="skill-chips">{app.job.required_skills.map(s => <span key={s}>{s}</span>)}</div>
+          {app.job.preferred_skills.length > 0 && <><h4>Preferred Skills</h4><div className="skill-chips">{app.job.preferred_skills.map(s => <span key={s}>{s}</span>)}</div></>}
+          <h4>Key Responsibilities</h4>
+          <ul>{app.job.key_responsibilities.map((r, i) => <li key={i}>{r}</li>)}</ul>
+        </div>
+      </div>
+    </div>}
   </>;
 }
 

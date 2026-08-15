@@ -11,3 +11,4 @@ export {
   type DemoAnalysis,
 } from "./demoAnalyses";
 export { demoHistory, demoStats, type DemoHistoryEntry } from "./demoHistory";
+export { demoCareerSnapshot } from "./demoCareer";

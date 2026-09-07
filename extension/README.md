@@ -113,9 +113,19 @@ await store.setSettings({ apiBaseUrl: "http://localhost:8000" });
 
 ## Troubleshooting
 
-**"Failed to extract resume information"** — the backend could not read text out of your PDF. This is
-usually a scanned or image-only resume. Export a text-based PDF (e.g. *Save as PDF* from Word or Google
-Docs) rather than a scan or screenshot.
+**"The backend could not authenticate with its AI provider (401)"** — nothing is wrong with your resume
+or the extension. The backend's `OPENROUTER_API_KEY` is missing, expired or revoked, so every AI feature
+fails (in the web app too, not just here). Fix it on the server: set a valid key in the Render
+environment for the backend service and redeploy. You can confirm it independently with:
+
+```bash
+curl -X POST https://cutc-intelliapply.onrender.com/api/jobs -F "description=a job description long enough to process"
+```
+
+A `500` with `"Failed to extract structured job information"` means the key is still bad.
+
+**"The backend could not read any text from your PDF"** — usually a scanned or image-only resume. Export
+a text-based PDF (e.g. *Save as PDF* from Word or Google Docs) rather than a scan or screenshot.
 
 **Capture does nothing / asks for permission every time** — permission to read pages must be granted
 once. If you declined, re-open the panel and press *Capture* again, or grant "Read your browsing

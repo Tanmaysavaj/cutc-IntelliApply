@@ -22,10 +22,53 @@ async function baseUrl() {
  * only looked at `detail` and `message`, so every one of those became a bare
  * "HTTP 422" and the actual cause was thrown away. `error` is checked first now.
  */
-function describeError(body, status) {
+/**
+ * Backend failures often arrive as a nested trace from whatever the backend was
+ * calling — e.g. `Failed to extract resume information: Resume extraction failed:
+ * Error code: 401 - {'error': {'message': 'User not found.'}}`. That is accurate
+ * but useless to a user, and it reads as if their resume were at fault when the
+ * real problem is a server-side credential. These translate the common upstream
+ * failures into something that says who needs to do what.
+ */
+const UPSTREAM_HINTS = [
+  {
+    match: /error code: 401|user not found|unauthoriz|invalid api key|authentication/i,
+    message:
+      "The IntelliApply backend could not authenticate with its AI provider (401). " +
+      "That is a server-side configuration problem — the backend's OPENROUTER_API_KEY is missing, " +
+      "expired or revoked. Your resume and this extension are fine.",
+  },
+  {
+    match: /insufficient credits|error code: 40[23]|error code: 429|quota|rate limit/i,
+    message:
+      "The IntelliApply backend's AI provider is out of credits or is rate limiting requests. " +
+      "Try again shortly, or top up the provider account.",
+  },
+  {
+    match: /no text extracted|no extractable text/i,
+    message:
+      "The backend could not read any text from your PDF, which usually means it is a scan or an image " +
+      "rather than a text PDF. Re-export it (for example “Save as PDF” from Word or Google Docs) and try again.",
+  },
+  {
+    match: /error code: 5\d\d|upstream|bad gateway|timed out|timeout/i,
+    message:
+      "The backend's AI provider did not respond. This is usually temporary — try again in a moment.",
+  },
+];
+
+function translateUpstream(raw) {
+  for (const hint of UPSTREAM_HINTS) {
+    if (hint.match.test(raw)) return hint.message;
+  }
+  return raw;
+}
+
+/** Exported for tests; not part of the client's public surface. */
+export function describeError(body, status) {
   const candidate = body?.error ?? body?.detail ?? body?.message;
 
-  if (typeof candidate === "string" && candidate.trim()) return candidate;
+  if (typeof candidate === "string" && candidate.trim()) return translateUpstream(candidate);
 
   // FastAPI request-validation failures arrive as an array of issue objects.
   if (Array.isArray(candidate)) {

@@ -5,6 +5,10 @@
 
 import type { ResumeData } from './api';
 import type { JobPosting } from './api';
+// Explicit .ts extension so this module can be exercised directly by
+// `node --test` (see tests/privacy-storage.test.ts), which is what proves the
+// opt-out below genuinely blocks writes rather than only hiding them in the UI.
+import { functionalStorageAllowed } from './privacy.ts';
 
 // Storage keys
 const STORAGE_KEYS = {
@@ -242,8 +246,13 @@ export interface AnalysisHistoryEntry {
 
 /**
  * Save the last analysis result (for caching when navigating between tabs)
+ *
+ * Skipped when the user has opted out of optional storage on the Data &
+ * Permissions page. This is what makes that toggle a real control rather than a
+ * cosmetic one.
  */
 export function saveLastAnalysis(data: any): void {
+  if (!functionalStorageAllowed()) return;
   try {
     localStorage.setItem(STORAGE_KEYS_ANALYSIS.LAST_ANALYSIS, JSON.stringify(data));
     console.log('✓ Last analysis cached');
@@ -267,8 +276,11 @@ export function loadLastAnalysis(): any | null {
 
 /**
  * Save analysis to history (keeps last 10 entries)
+ *
+ * Skipped when the user has opted out of optional storage.
  */
 export function addToHistory(entry: AnalysisHistoryEntry): void {
+  if (!functionalStorageAllowed()) return;
   try {
     const history = getHistory();
     // Add new entry at the beginning

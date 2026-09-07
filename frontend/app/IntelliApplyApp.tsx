@@ -12,6 +12,9 @@ import type { DemoAnalyticsData, DemoReanalyzeComparison } from "@/lib/data";
 import { projectConfig } from "@/lib/config";
 import type { Page } from "@/lib/routes";
 import { useAppRouter } from "@/lib/useAppRouter";
+import ContactPage from "./ContactPage";
+import PrivacyPage from "./PrivacyPage";
+import StorageConsentNotice from "./StorageConsentNotice";
 const Icon = ({ children }: { children: React.ReactNode }) => <span className="icon" aria-hidden="true">{children}</span>;
 const navItems: { id: Page; label: string; icon: string }[] = [
   { id: "landing", label: "Home", icon: "⌂" }, { id: "resume", label: "Resume", icon: "▤" },
@@ -161,6 +164,8 @@ export default function IntelliApplyApp({ initialHref = "/" }: { initialHref?: s
         {page === "how-it-works" && <HowItWorksPage setPage={setPage} isDemo={isDemo} onDemo={handleEnterDemo} />}
         {page === "about" && <AboutPage setPage={setPage} />}
         {page === "team" && <TeamPage setPage={setPage} />}
+        {page === "contact" && <ContactPage />}
+        {page === "privacy" && <PrivacyPage setPage={setPage} />}
       </div>
       <Footer setPage={setPage} isDemo={isDemo} onDemo={handleEnterDemo} />
     </section>
@@ -170,6 +175,7 @@ export default function IntelliApplyApp({ initialHref = "/" }: { initialHref?: s
     {demoStep !== null && <DemoTour step={demoStep} setStep={setDemoStep} setPage={setPage} setUploaded={setUploaded} />}
     {toast && <div className="toast">✓ {toast}</div>}
     {showAuthModal && <AuthModal onClose={() => setShowAuthModal(false)} auth={auth} notify={notify} />}
+    <StorageConsentNotice setPage={setPage} />
   </main>;
 }
 
@@ -987,7 +993,7 @@ function Footer({ setPage, isDemo, onDemo }: { setPage: (p: Page) => void; isDem
         <h4>Company</h4>
         <button onClick={() => setPage("about")}>About</button>
         <button onClick={() => setPage("team")}>Team</button>
-        {projectConfig.social.contact && <a href={projectConfig.social.contact} target="_blank" rel="noopener noreferrer">Contact</a>}
+        <button onClick={() => setPage("contact")}>Contact</button>
       </div>
       <div className="footer-col">
         <h4>Connect</h4>
@@ -996,9 +1002,11 @@ function Footer({ setPage, isDemo, onDemo }: { setPage: (p: Page) => void; isDem
       </div>
       <div className="footer-col">
         <h4>Legal</h4>
-        <button className="footer-legal-link" aria-label="Privacy policy (coming soon)">Privacy</button>
-        <button className="footer-legal-link" aria-label="Terms of service (coming soon)">Terms</button>
-        <button className="footer-legal-link footer-ai-disclaimer-link" aria-label="AI Disclaimer">AI Disclaimer</button>
+        {/* Previously dead buttons labelled "coming soon"; they now open the real
+            Data & Permissions page. */}
+        <button onClick={() => setPage("privacy")}>Data &amp; Permissions</button>
+        <button onClick={() => setPage("privacy")}>Your data choices</button>
+        <button onClick={() => setPage("contact")}>Report a problem</button>
       </div>
     </div>
     <div className="footer-disclaimer">

@@ -31,6 +31,12 @@ yarn-error.log*
 .env*
 !.env.example
 
+# Cloudflare Worker secrets for local dev (`vinext dev` reads this file).
+# Holds real API keys — must never be committed.
+.dev.vars
+.dev.vars.*
+!.dev.vars.example
+
 # vercel
 .vercel
 
@@ -44,3 +50,5 @@ next-env.d.ts
 
 # vinext font cache (regenerated during build with machine-specific paths)
 .vinext/fonts/*/style.css
+# vinext dev-server state (lock file written by `vinext dev`)
+.vinext/dev/

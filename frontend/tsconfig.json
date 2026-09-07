@@ -11,6 +11,10 @@
     "moduleResolution": "bundler",
     "resolveJsonModule": true,
     "isolatedModules": true,
+    // Lets lib/contactSchema.ts import lib/textQuality.ts with an explicit
+    // extension, so the shared validation schema runs under `node --test`
+    // without a build step. Safe because noEmit is set.
+    "allowImportingTsExtensions": true,
     "jsx": "react-jsx",
     "incremental": true,
     "plugins": [

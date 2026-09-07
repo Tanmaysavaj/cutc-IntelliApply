@@ -192,7 +192,11 @@ function Topbar({ page, setPage, theme, toggleTheme, isDemo, onExitDemo, auth, o
     {isLanding && <Brand onHome={() => go("landing")} />}
     {isLanding && <nav className="top-nav">{links.map(link => <button key={link.id} className={page === link.id ? "active" : ""} onClick={() => go(link.id)}>{link.label}</button>)}</nav>}
     {!isLanding && <div className="mobile-brand"><Brand compact onHome={() => go("landing")} /></div>}
-    {isDemo && <span className="demo-badge">DEMO MODE</span>}
+    {/* Doubles as the exit control. On phones the sidebar collapses to a bottom
+        nav bar where the full-width "Exit Demo" button crushed every nav tab to
+        zero height, so that button is hidden there and this chip is the way out
+        of demo mode. `onExitDemo` was already passed in but previously unused. */}
+    {isDemo && <button className="demo-badge" onClick={onExitDemo} title="Exit demo mode" aria-label="Exit demo mode">DEMO MODE</button>}
     <div className="topbar-actions">
       {/* Always render an auth entry point while signed out. This used to be
           gated on `auth.configured`, which silently removed the button from the

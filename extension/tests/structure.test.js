@@ -130,6 +130,43 @@ test("no content_scripts are declared", () => {
   assert.equal(manifest.content_scripts, undefined);
 });
 
+test("page access is optional, not granted at install", () => {
+  // Reading pages needs a host permission — `activeTab` is not enough, because it
+  // is only granted via the toolbar action, not a click inside the side panel.
+  // It is declared optional so a fresh install still has zero site access and the
+  // user grants it explicitly on first capture.
+  assert.ok(Array.isArray(manifest.optional_host_permissions), "expected optional_host_permissions");
+  for (const pattern of ["http://*/*", "https://*/*"]) {
+    assert.ok(
+      manifest.optional_host_permissions.includes(pattern),
+      `optional_host_permissions should include ${pattern}`
+    );
+    assert.ok(
+      !manifest.host_permissions.includes(pattern),
+      `${pattern} must NOT be a required permission`
+    );
+  }
+});
+
+test("capture lives in the side panel, not the service worker", () => {
+  // chrome.permissions.request needs a user gesture, which a service worker
+  // cannot supply, so the worker must not own the capture path.
+  const worker = readFileSync(join(ROOT, "src/background/service-worker.js"), "utf8");
+  assert.doesNotMatch(worker, /executeScript/, "worker must not inject scripts");
+  assert.doesNotMatch(worker, /extract-posting/, "worker must not import the extractor");
+
+  const capture = readFileSync(join(ROOT, "src/lib/capture.js"), "utf8");
+  assert.match(capture, /permissions\.request/, "capture must request the optional permission");
+  assert.match(capture, /executeScript/);
+});
+
+test("the API client reads the backend's own error field", () => {
+  // The backend's ErrorResponse puts the reason in `error`; reading only `detail`
+  // reduced every failure to a bare "HTTP 422".
+  const api = readFileSync(join(ROOT, "src/lib/api.js"), "utf8");
+  assert.match(api, /body\?\.error/, "must prefer the backend's `error` field");
+});
+
 test("side panel HTML loads its script as a module and references its stylesheet", () => {
   const html = readFileSync(join(ROOT, manifest.side_panel.default_path), "utf8");
   assert.match(html, /<script[^>]*type="module"[^>]*src="sidepanel\.js"/);

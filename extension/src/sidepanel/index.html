@@ -32,13 +32,24 @@
           <button id="capture" class="btn primary" type="button">Capture this page</button>
           <button id="posting-toggle" class="link-btn" type="button" hidden>View</button>
         </div>
+
+        <!-- Editable, so the archive name is always meaningful even when a site
+             yields a poor title or no company at all. -->
+        <div id="posting-fields" hidden>
+          <label class="field-label" for="posting-title">Job title</label>
+          <input id="posting-title" type="text" placeholder="e.g. Backend Developer" />
+          <label class="field-label" for="posting-company">Company</label>
+          <input id="posting-company" type="text" placeholder="e.g. Shopify" />
+          <p class="hint">Used to name the saved zip. Edit if the page got it wrong.</p>
+        </div>
+
         <details id="posting-details" hidden>
           <summary>Captured text</summary>
           <pre id="posting-text"></pre>
         </details>
         <p class="hint">
-          Nothing is read from any page until you press this. If a page will not capture, paste the
-          description instead.
+          Nothing is read from any page until you press Capture. The first time, Chrome will ask
+          permission to read pages — you can revoke it any time from the extensions page.
         </p>
         <button id="paste-toggle" class="link-btn" type="button">Paste manually</button>
         <div id="paste-wrap" hidden>
@@ -85,6 +96,7 @@
           <button id="choose-folder" class="btn secondary" type="button">Choose folder</button>
           <button id="save-package" class="btn primary" type="button">Save as zip</button>
         </div>
+        <p id="package-name-preview" class="hint"></p>
         <p class="hint">
           Saved as one zip containing your resume, the job posting, your cover letter and any
           attachments. The match score is not included.

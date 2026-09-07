@@ -42,9 +42,10 @@ export function formatPosting(posting) {
  * @param {{file: Blob, name: string}|null} options.resume
  * @param {string} options.coverLetter
  * @param {Array<{name: string, file: Blob}>} options.attachments
+ * @param {string} [options.applicantName] used in the archive name
  * @returns {Promise<{ fileName: string, bytes: Uint8Array, contents: string[] }>}
  */
-export async function buildPackage({ posting, resume, coverLetter, attachments = [] }) {
+export async function buildPackage({ posting, resume, coverLetter, attachments = [], applicantName }) {
   if (!posting) throw new Error("Capture a job posting before saving a package.");
 
   const entries = [];
@@ -73,17 +74,55 @@ export async function buildPackage({ posting, resume, coverLetter, attachments =
   }
 
   return {
-    fileName: packageFileName(posting),
+    fileName: packageFileName(posting, { applicantName, resumeName: resume?.name }),
     bytes: createZip(entries),
     contents,
   };
 }
 
-/** e.g. `shopify-backend-developer-2026-09-07.zip` */
-export function packageFileName(posting, now = new Date()) {
+/** Drops the extension and common filler from a resume filename. */
+export function applicantFromResumeName(resumeName) {
+  if (!resumeName) return "";
+  const stem = resumeName.replace(/\.[^.]+$/, "");
+  // Separators must become spaces first: `_` is a word character, so `\b` would
+  // not see a boundary in "Priya_Raman_CV_v3" and the filler would survive.
+  const cleaned = stem
+    .replace(/[_.\-\s]+/g, " ")
+    .replace(/\b(resume|resumes|cv|curriculum\s*vitae|final|latest|updated|copy|v\d+|\d{4})\b/gi, " ")
+    .trim();
+  // If stripping the filler leaves nothing useful, keep the original stem —
+  // "resume.pdf" should still contribute something rather than vanish.
+  return slugify(cleaned || stem, "");
+}
+
+/**
+ * Archive name, built from the things that actually identify an application:
+ * company, role, and whose resume it is.
+ *
+ * e.g. `shopify-backend-developer-alex-chen-2026-09-07.zip`
+ *
+ * Every part is optional and simply omitted when unknown, so a partially
+ * captured posting still produces a sensible name rather than "application".
+ */
+export function packageFileName(posting, options = {}, now = new Date()) {
+  const { applicantName, resumeName } = options;
   const date = now.toISOString().slice(0, 10);
-  const company = posting.company ? slugify(posting.company) : "";
-  const role = slugify(posting.title || "application");
-  const stem = [company, role].filter(Boolean).join("-") || "application";
+
+  const parts = [
+    posting.company ? slugify(posting.company, "") : "",
+    posting.title ? slugify(posting.title, "") : "",
+    applicantName ? slugify(applicantName, "") : applicantFromResumeName(resumeName),
+  ].filter(Boolean);
+
+  // De-duplicate: a resume called "shopify-application.pdf" should not repeat
+  // the company already in the name.
+  const seen = new Set();
+  const unique = parts.filter((part) => {
+    if (seen.has(part)) return false;
+    seen.add(part);
+    return true;
+  });
+
+  const stem = unique.join("-") || "application";
   return `${stem}-${date}.zip`;
 }

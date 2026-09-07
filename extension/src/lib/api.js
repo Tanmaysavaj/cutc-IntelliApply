@@ -14,6 +14,37 @@ async function baseUrl() {
   return (settings.apiBaseUrl || SETTINGS_DEFAULTS.apiBaseUrl).replace(/\/+$/, "");
 }
 
+/**
+ * Turns a failed response into something worth showing a user.
+ *
+ * The backend's own ErrorResponse model puts the reason in `error` — e.g.
+ * "Failed to extract resume information: …". The first version of this client
+ * only looked at `detail` and `message`, so every one of those became a bare
+ * "HTTP 422" and the actual cause was thrown away. `error` is checked first now.
+ */
+function describeError(body, status) {
+  const candidate = body?.error ?? body?.detail ?? body?.message;
+
+  if (typeof candidate === "string" && candidate.trim()) return candidate;
+
+  // FastAPI request-validation failures arrive as an array of issue objects.
+  if (Array.isArray(candidate)) {
+    const issues = candidate
+      .map((issue) => {
+        const field = Array.isArray(issue?.loc) ? issue.loc.filter((p) => p !== "body").join(".") : "";
+        return [field, issue?.msg].filter(Boolean).join(": ");
+      })
+      .filter(Boolean);
+    if (issues.length) return issues.join("; ");
+  }
+
+  if (candidate && typeof candidate === "object") return JSON.stringify(candidate);
+
+  return status === 422
+    ? "The backend could not process the resume or job posting (HTTP 422)."
+    : `Request failed (HTTP ${status}).`;
+}
+
 /** Adds a timeout, so a cold backend surfaces as a clear error not a hung UI. */
 async function request(path, init = {}) {
   const controller = new AbortController();
@@ -30,10 +61,7 @@ async function request(path, init = {}) {
     } catch {
       body = { raw: text };
     }
-    if (!response.ok) {
-      const detail = body?.detail || body?.message || `HTTP ${response.status}`;
-      throw new Error(typeof detail === "string" ? detail : JSON.stringify(detail));
-    }
+    if (!response.ok) throw new Error(describeError(body, response.status));
     return body;
   } catch (error) {
     if (error?.name === "AbortError") {

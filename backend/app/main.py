@@ -4,7 +4,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from app.api import resume, jobs, analysis, company, applications
+from app.api import resume, jobs, analysis, company, applications, diagnostics
 
 # Initialize FastAPI application
 app = FastAPI(
@@ -46,6 +46,7 @@ app.include_router(jobs.router)
 app.include_router(analysis.router)
 app.include_router(company.router)
 app.include_router(applications.router)
+app.include_router(diagnostics.router)
 
 
 @app.get("/api/health", tags=["Health"])

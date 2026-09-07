@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>IntelliApply</title>
+    <link rel="stylesheet" href="sidepanel.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <span class="brand"><span class="mark">✦</span>Intelli<span class="thin">Apply</span></span>
+      <button id="tab-history" class="link-btn" type="button">History</button>
+    </header>
+
+    <main id="view-main">
+      <!-- 1. Resume -->
+      <section class="card">
+        <h2><span class="step">1</span> Your resume</h2>
+        <p id="resume-status" class="muted">No resume added yet.</p>
+        <div class="row">
+          <label class="btn secondary" for="resume-input">Choose PDF</label>
+          <input id="resume-input" type="file" accept="application/pdf" hidden />
+          <button id="resume-clear" class="link-btn" type="button" hidden>Remove</button>
+        </div>
+      </section>
+
+      <!-- 2. Job posting -->
+      <section class="card">
+        <h2><span class="step">2</span> Job posting</h2>
+        <p id="posting-status" class="muted">Open a job posting in a tab, then capture it.</p>
+        <div class="row">
+          <button id="capture" class="btn primary" type="button">Capture this page</button>
+          <button id="posting-toggle" class="link-btn" type="button" hidden>View</button>
+        </div>
+        <details id="posting-details" hidden>
+          <summary>Captured text</summary>
+          <pre id="posting-text"></pre>
+        </details>
+        <p class="hint">
+          Nothing is read from any page until you press this. If a page will not capture, paste the
+          description instead.
+        </p>
+        <button id="paste-toggle" class="link-btn" type="button">Paste manually</button>
+        <div id="paste-wrap" hidden>
+          <textarea id="paste-text" rows="6" placeholder="Paste the full job description here…"></textarea>
+          <button id="paste-save" class="btn secondary" type="button">Use this text</button>
+        </div>
+      </section>
+
+      <!-- 3. Score -->
+      <section class="card">
+        <h2><span class="step">3</span> Match score</h2>
+        <button id="check-score" class="btn primary" type="button">Ask IntelliApply</button>
+        <div id="score-result" hidden>
+          <div class="score-ring"><strong id="score-value">—</strong><span>match</span></div>
+          <p id="score-recommendation" class="pill"></p>
+          <div id="score-detail"></div>
+        </div>
+      </section>
+
+      <!-- 4. Cover letter -->
+      <section class="card">
+        <h2><span class="step">4</span> Cover letter</h2>
+        <textarea
+          id="cover-letter"
+          rows="6"
+          placeholder="Write or paste your cover letter. It is saved into the package."
+        ></textarea>
+        <p class="hint">Saved as you type, on this device only.</p>
+      </section>
+
+      <!-- 5. Attachments -->
+      <section class="card">
+        <h2><span class="step">5</span> Other attachments</h2>
+        <ul id="attachment-list" class="file-list"></ul>
+        <label class="btn secondary" for="attachment-input">Add file</label>
+        <input id="attachment-input" type="file" multiple hidden />
+      </section>
+
+      <!-- 6. Save -->
+      <section class="card">
+        <h2><span class="step">6</span> Save package</h2>
+        <p id="folder-status" class="muted">No save folder chosen yet.</p>
+        <div class="row">
+          <button id="choose-folder" class="btn secondary" type="button">Choose folder</button>
+          <button id="save-package" class="btn primary" type="button">Save as zip</button>
+        </div>
+        <p class="hint">
+          Saved as one zip containing your resume, the job posting, your cover letter and any
+          attachments. The match score is not included.
+        </p>
+      </section>
+
+      <footer class="foot">
+        <button id="erase" class="link-btn danger" type="button">Erase everything on this device</button>
+      </footer>
+    </main>
+
+    <!-- History -->
+    <section id="view-history" hidden>
+      <div class="row space">
+        <h2>Saved packages</h2>
+        <button id="back-main" class="link-btn" type="button">Back</button>
+      </div>
+      <ul id="history-list" class="history"></ul>
+      <button id="history-clear" class="link-btn danger" type="button">Clear history</button>
+    </section>
+
+    <div id="toast" class="toast" hidden></div>
+
+    <script type="module" src="sidepanel.js"></script>
+  </body>
+</html>

@@ -1,0 +1,20 @@
+# Cloudflare Worker secrets for local development.
+# Copy to `.dev.vars` (gitignored) and fill in real values. `vinext dev` loads it
+# automatically. For production, set the same names as Worker secrets:
+#   npx wrangler secret put RESEND_API_KEY
+# or add them to the deploy workflow.
+
+# ─── Contact form email delivery ───
+# Required for /api/contact to actually send. Without it the endpoint returns 503
+# and the form falls back to offering a mailto: link, so nothing is lost silently.
+# Get a key at https://resend.com (free tier is enough for a contact form).
+RESEND_API_KEY=re_your_api_key_here
+
+# Where submissions are delivered. Defaults to tanmaysavaj5862@gmail.com.
+CONTACT_TO_EMAIL=tanmaysavaj5862@gmail.com
+
+# Sender address. Resend's shared `onboarding@resend.dev` works without owning a
+# domain, but can only deliver to the address that owns the Resend account.
+# Once you verify a domain, change this to something like
+# "IntelliApply <noreply@yourdomain.com>".
+CONTACT_FROM_EMAIL=IntelliApply <onboarding@resend.dev>

@@ -22,7 +22,9 @@ export type Page =
   | "application-detail"
   | "how-it-works"
   | "about"
-  | "team";
+  | "team"
+  | "contact"
+  | "privacy";
 
 /** A fully resolved location: which screen, plus the params that screen needs. */
 export type RouteState = {
@@ -59,6 +61,8 @@ const SEGMENT_BY_PAGE = {
   "how-it-works": "how-it-works",
   about: "about",
   team: "team",
+  contact: "contact",
+  privacy: "privacy",
 } as const satisfies Partial<Record<Page, string>>;
 
 const PAGE_BY_SEGMENT: Record<string, Page> = Object.fromEntries(

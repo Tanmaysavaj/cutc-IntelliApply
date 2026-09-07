@@ -788,3 +788,97 @@
 @media(max-width:520px){
   .topbar:has(.demo-badge) .mobile-brand .brand>span:last-child{display:none}
 }
+
+
+/* ─── FORMS (contact) ─── */
+.form-field{display:flex;flex-direction:column;gap:6px;margin-bottom:18px;min-width:0}
+.form-field>label{font-size:13px;font-weight:700;color:var(--text)}
+.form-field .required-mark{color:var(--primary);margin-left:3px}
+.field-hint{color:var(--muted);font-size:12px;line-height:1.5}
+.form-field input,.form-field select,.form-field textarea{width:100%;border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--text);padding:12px 14px;font:inherit}
+.form-field textarea{resize:vertical;min-height:130px;line-height:1.6}
+.form-field input:focus-visible,.form-field select:focus-visible,.form-field textarea:focus-visible{border-color:var(--primary)}
+.form-field.has-error input,.form-field.has-error select,.form-field.has-error textarea{border-color:var(--orange)}
+.form-field input:disabled,.form-field select:disabled,.form-field textarea:disabled{opacity:.6;cursor:not-allowed}
+.field-error{margin:0;color:var(--orange);font-size:12.5px;font-weight:600;line-height:1.5}
+
+.contact-form{max-width:720px}
+.contact-row{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.contact-counter{align-self:flex-end;color:var(--muted);font-size:11.5px}
+/* Off-screen rather than display:none — bots skip hidden inputs, but a scripted
+   fill of every field still trips this. */
+.contact-honeypot{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap}
+.contact-consent{display:flex;gap:11px;align-items:flex-start;margin:4px 0 6px;color:var(--muted);font-size:13px;line-height:1.6;cursor:pointer}
+.contact-consent input{margin-top:3px;width:17px;height:17px;flex-shrink:0;accent-color:var(--primary)}
+.contact-actions{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-top:18px;padding-top:18px;border-top:1px solid var(--line)}
+.contact-note{color:var(--muted);font-size:12px}
+.contact-failed{margin:14px 0 0;padding:13px 15px;border:1px solid color-mix(in srgb,var(--orange) 40%,var(--line));border-radius:11px;background:color-mix(in srgb,var(--orange) 7%,var(--surface))}
+.contact-failed p{margin:0 0 6px;color:var(--text);font-size:13.5px;line-height:1.6}
+.contact-failed p:last-child{margin:0}
+.contact-failed a{color:var(--primary);font-weight:700}
+.contact-sent{max-width:620px;text-align:center;padding:48px 30px}
+.contact-sent-mark{display:grid;place-items:center;width:66px;height:66px;margin:0 auto 18px;border-radius:50%;background:color-mix(in srgb,var(--green) 13%,var(--surface));color:var(--green);font-size:30px;font-weight:800}
+.contact-sent h2{margin:0 0 10px}
+.contact-sent p{margin:0 auto 22px;max-width:44ch;color:var(--muted);line-height:1.65}
+
+/* ─── DATA & PERMISSIONS PAGE ─── */
+.policy-summary,.policy-section{max-width:900px;margin-bottom:16px}
+.policy-summary h2,.policy-section h2{margin:0 0 14px;font-size:19px}
+.policy-summary ul{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:11px}
+.policy-summary li{color:var(--muted);line-height:1.65}
+.policy-summary li strong{color:var(--text)}
+.policy-lead{margin:0 0 14px;color:var(--muted);line-height:1.68}
+.policy-note{margin:14px 0 0;color:var(--muted);font-size:13px;font-style:italic}
+.policy-defs{margin:0;display:flex;flex-direction:column;gap:14px}
+.policy-defs dt{font-weight:750;font-size:14.5px}
+.policy-defs dd{margin:5px 0 0;color:var(--muted);line-height:1.65}
+.policy-group{margin-top:20px}
+.policy-group:first-of-type{margin-top:8px}
+.policy-group h3{margin:0 0 6px}
+.policy-group-blurb{margin:0 0 12px;color:var(--muted);font-size:13px;line-height:1.6}
+.policy-tag{display:inline-flex;padding:4px 11px;border-radius:99px;font-size:11px;font-weight:800;letter-spacing:.07em;text-transform:uppercase}
+.policy-tag-essential{background:color-mix(in srgb,var(--primary) 13%,var(--surface));color:var(--primary)}
+.policy-tag-preference{background:var(--surface-2);color:var(--muted)}
+.policy-tag-functional{background:color-mix(in srgb,var(--orange) 13%,var(--surface));color:var(--orange)}
+.policy-storage-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(255px,1fr));gap:12px}
+.policy-storage-item{border:1px solid var(--line);border-radius:12px;padding:14px 15px;background:var(--bg);min-width:0}
+.policy-storage-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:7px}
+.policy-storage-head strong{font-size:14px}
+.policy-storage-head code,.policy-storage-key{font-size:10.5px;color:var(--muted);background:var(--surface-2);padding:3px 7px;border-radius:6px}
+.policy-storage-item p{margin:0 0 7px;color:var(--muted);font-size:13px;line-height:1.55}
+.policy-storage-item small{display:block;margin-bottom:9px;color:var(--muted);font-size:12px;line-height:1.5;font-style:italic}
+.policy-storage-key{display:inline-block;overflow-wrap:anywhere}
+.policy-processor-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(255px,1fr));gap:12px}
+.policy-processor{border:1px solid var(--line);border-radius:12px;padding:14px 15px;background:var(--bg);min-width:0}
+.policy-processor strong{display:block;margin-bottom:6px;font-size:14px}
+.policy-processor p{margin:0 0 8px;color:var(--muted);font-size:13px;line-height:1.55}
+.policy-processor small{color:var(--muted);font-size:12px;line-height:1.5}
+.policy-processor small em{color:var(--text);font-style:normal;font-weight:700}
+.policy-controls .policy-choice{display:grid;grid-template-columns:1fr auto;gap:18px;align-items:start;padding:16px 0;border-top:1px solid var(--line)}
+.policy-controls .policy-choice:first-of-type{border-top:0;padding-top:4px}
+.policy-choice strong{display:block;margin-bottom:5px;font-size:14.5px}
+.policy-choice p{margin:0 0 6px;color:var(--muted);font-size:13px;line-height:1.6}
+.policy-choice small{color:var(--muted);font-size:12px}
+.policy-choice>div:first-child{min-width:0}
+.policy-choice-actions{display:flex;gap:8px;flex-wrap:wrap}
+.policy-erased{color:var(--green)!important;font-weight:650}
+
+/* ─── STORAGE NOTICE ─── */
+.storage-notice{position:fixed;left:16px;right:16px;bottom:16px;z-index:130;display:flex;align-items:center;gap:20px;max-width:920px;margin:auto;padding:16px 20px;border:1px solid var(--line);border-radius:15px;background:var(--surface);box-shadow:var(--shadow)}
+.storage-notice-body{min-width:0}
+/* Direct child only: the paragraph below contains an inline <strong> ("no
+   cookies") which a descendant selector turned into a block, splitting the
+   sentence across three lines. */
+.storage-notice-body>strong{display:block;margin-bottom:5px;font-size:14px}
+.storage-notice-body p{margin:0;color:var(--muted);font-size:12.5px;line-height:1.6}
+.storage-notice-actions{display:flex;align-items:center;gap:9px;flex-shrink:0}
+
+@media(max-width:760px){
+  .contact-row{grid-template-columns:1fr}
+  .policy-controls .policy-choice{grid-template-columns:1fr}
+  .policy-choice-actions .btn{flex:1}
+  /* Sits above the bottom nav bar rather than behind it. */
+  .storage-notice{flex-direction:column;align-items:stretch;gap:14px;bottom:76px;left:10px;right:10px;padding:15px 16px}
+  .storage-notice-actions{flex-wrap:wrap}
+  .storage-notice-actions .btn{flex:1}
+}

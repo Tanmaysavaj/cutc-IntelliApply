@@ -46,6 +46,36 @@ jobs:
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
         run: npx @vinext/cloudflare deploy
 
+      # RESEND_API_KEY is read at *runtime* by the /api/contact route handler, so
+      # unlike the NEXT_PUBLIC_* values above it must live as a Worker secret
+      # rather than be inlined into the bundle. Runs after deploy because the
+      # Worker has to exist before a secret can be attached to it.
+      - name: Sync contact-form secrets to the Worker
+        working-directory: frontend
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          CONTACT_TO_EMAIL: ${{ vars.CONTACT_TO_EMAIL }}
+          CONTACT_FROM_EMAIL: ${{ vars.CONTACT_FROM_EMAIL }}
+        run: |
+          if [ -z "$RESEND_API_KEY" ]; then
+            echo "⚠️ RESEND_API_KEY not set — the contact form cannot send email." >> "$GITHUB_STEP_SUMMARY"
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo "The form still validates and, instead of failing silently, tells the visitor" >> "$GITHUB_STEP_SUMMARY"
+            echo "delivery is unavailable and offers a pre-filled \`mailto:\` link." >> "$GITHUB_STEP_SUMMARY"
+            echo "To enable sending, add the \`RESEND_API_KEY\` repository secret and re-run." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          printf '%s' "$RESEND_API_KEY" | npx wrangler secret put RESEND_API_KEY
+          if [ -n "$CONTACT_TO_EMAIL" ]; then
+            printf '%s' "$CONTACT_TO_EMAIL" | npx wrangler secret put CONTACT_TO_EMAIL
+          fi
+          if [ -n "$CONTACT_FROM_EMAIL" ]; then
+            printf '%s' "$CONTACT_FROM_EMAIL" | npx wrangler secret put CONTACT_FROM_EMAIL
+          fi
+          echo "✅ Contact form email delivery configured." >> "$GITHUB_STEP_SUMMARY"
+
       - name: Report auth configuration status
         if: always()
         run: |

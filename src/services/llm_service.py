@@ -12,12 +12,131 @@ from src.models.resume import Resume
 logger = logging.getLogger(__name__)
 
 
+def _strip_code_fence(text):
+    """Removes a ```json ... ``` wrapper, which models add even when told not to."""
+    cleaned = (text or "").strip()
+    if not cleaned.startswith("```"):
+        return cleaned
+    lines = cleaned.splitlines()
+    if lines and lines[0].startswith("```"):
+        lines = lines[1:]
+    if lines and lines[-1].strip() == "```":
+        lines = lines[:-1]
+    return "\n".join(lines).strip()
+
+
+def _first_json_object(text):
+    """Extracts the outermost JSON object, ignoring any prose around it."""
+    start = text.find("{")
+    end = text.rfind("}")
+    if start == -1 or end == -1 or end <= start:
+        return None
+    return text[start : end + 1]
+
+
 class LLMService:
 
     def __init__(self):
         self.client = OpenAI(
             api_key=OPENROUTER_API_KEY,
             base_url="https://openrouter.ai/api/v1",
+        )
+
+    def _extract_structured(self, model_cls, system_prompt, text, label):
+        """Extracts `model_cls` from `text`, tolerating models without schema support.
+
+        `client.beta.chat.completions.parse()` relies on OpenAI-style structured
+        outputs, which OpenRouter only supports for compatible models. On a model
+        that does not support them — most of the free ones — the call returns
+        successfully but `message.parsed` is None. The previous code then read
+        `.job_title` straight off that None, so the whole request died with
+        "'NoneType' object has no attribute 'job_title'", which says nothing about
+        the real cause.
+
+        So: try structured output first, and if the model cannot do it, fall back to
+        asking for plain JSON and validating it here. That keeps the good path exact
+        while letting cheaper models work.
+        """
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": text},
+        ]
+
+        raw_content = None
+        try:
+            response = self.client.beta.chat.completions.parse(
+                model=OPENROUTER_MODEL,
+                messages=messages,
+                response_format=model_cls,
+            )
+            message = response.choices[0].message
+            if getattr(message, "parsed", None) is not None:
+                return message.parsed
+            # Schema was accepted but not honoured; the text may still be usable.
+            raw_content = message.content
+            logger.warning(
+                "Model %s returned no structured output for %s; falling back to JSON parsing",
+                OPENROUTER_MODEL,
+                label,
+            )
+        except Exception as exc:
+            # Some models reject `response_format` outright rather than ignoring it.
+            logger.warning(
+                "Structured output unavailable for %s on model %s (%s); falling back to JSON parsing",
+                label,
+                OPENROUTER_MODEL,
+                exc,
+            )
+
+        if raw_content is None:
+            raw_content = self._request_json(model_cls, system_prompt, text)
+
+        return self._validate_json(model_cls, raw_content, label)
+
+    def _request_json(self, model_cls, system_prompt, text):
+        """Asks for raw JSON, embedding the schema in the prompt."""
+        try:
+            schema = json.dumps(model_cls.model_json_schema())
+        except Exception:  # pragma: no cover - schema generation is not expected to fail
+            schema = ""
+
+        instruction = (
+            f"{system_prompt}\n\n"
+            "Respond with a single JSON object only. No markdown, no code fences and no "
+            "commentary. It must validate against this JSON Schema:\n"
+            f"{schema}"
+        )
+
+        response = self.client.chat.completions.create(
+            model=OPENROUTER_MODEL,
+            messages=[
+                {"role": "system", "content": instruction},
+                {"role": "user", "content": text},
+            ],
+        )
+        return response.choices[0].message.content
+
+    def _validate_json(self, model_cls, raw_content, label):
+        cleaned = _strip_code_fence(raw_content)
+        if not cleaned:
+            raise RuntimeError(
+                f"The model ({OPENROUTER_MODEL}) returned an empty response for {label}. "
+                "It may not support structured output — try a model that does, such as "
+                "google/gemini-2.5-flash."
+            )
+
+        for candidate in (cleaned, _first_json_object(cleaned)):
+            if not candidate:
+                continue
+            try:
+                return model_cls.model_validate_json(candidate)
+            except Exception:
+                continue
+
+        raise RuntimeError(
+            f"The model ({OPENROUTER_MODEL}) did not return valid JSON for {label}. "
+            "This usually means the model does not support structured output — try a "
+            "model that does, such as google/gemini-2.5-flash."
         )
 
     def extract_job(self, text: str) -> JobPosting:
@@ -62,24 +181,9 @@ class LLMService:
 
         try:
             logger.debug(f"Calling LLM for job extraction with {len(text)} characters of input")
-            response = self.client.beta.chat.completions.parse(
-                model=OPENROUTER_MODEL,
-                messages=[
-                    {
-                        "role": "system",
-                        "content": system_prompt,
-                    },
-                    {
-                        "role": "user",
-                        "content": text,
-                    },
-                ],
-                response_format=JobPosting,
-            )
-
-            job_data = response.choices[0].message.parsed
+            job_data = self._extract_structured(JobPosting, system_prompt, text, "the job posting")
             logger.info(f"LLM extracted job: title='{job_data.job_title}', company='{job_data.company_name}'")
-            
+
             return job_data
 
         except Exception as e:
@@ -116,23 +220,9 @@ class LLMService:
 
         try:
             logger.debug(f"Calling LLM for resume extraction with {len(text)} characters of input")
-            response = self.client.beta.chat.completions.parse(
-                model=OPENROUTER_MODEL,
-                messages=[
-                    {
-                        "role": "system",
-                        "content": system_prompt,
-                    },
-                    {
-                        "role": "user",
-                        "content": text,
-                    },
-                ],
-                response_format=Resume,
-            )
-
-            logger.info(f"LLM extracted resume successfully")
-            return response.choices[0].message.parsed
+            resume = self._extract_structured(Resume, system_prompt, text, "the resume")
+            logger.info("LLM extracted resume successfully")
+            return resume
 
         except Exception as e:
             logger.error(f"LLM resume extraction failed: {e}")
@@ -167,32 +257,20 @@ class LLMService:
 
         try:
             logging.debug("Calling LLM for application report")
-            response = self.client.beta.chat.completions.parse(
-                model=OPENROUTER_MODEL,
-                messages=[
-                    {
-                        "role": "system",
-                        "content": system_prompt,
-                    },
-                    {
-                        "role": "user",
-                        "content": json.dumps(
-                            {
-                                "job": job,
-                                "resume": resume,
-                                "market_analysis": market_analysis,
-                                "gap_analysis": gap_analysis,
-                                "company_research": company_research,
-                                "whois": whois_information,
-                            },
-                            indent=4,
-                        ),
-                    },
-                ],
-                response_format=ApplicationReport,
+            payload = json.dumps(
+                {
+                    "job": job,
+                    "resume": resume,
+                    "market_analysis": market_analysis,
+                    "gap_analysis": gap_analysis,
+                    "company_research": company_research,
+                    "whois": whois_information,
+                },
+                indent=4,
             )
-
-            return response.choices[0].message.parsed
+            return self._extract_structured(
+                ApplicationReport, system_prompt, payload, "the application report"
+            )
 
         except Exception as e:
             raise RuntimeError(

@@ -26,8 +26,9 @@ import {
   setCoverLetter,
   setPosting,
 } from "../lib/store.js";
-import { buildPackage } from "../lib/packageBuilder.js";
+import { buildPackage, packageFileName } from "../lib/packageBuilder.js";
 import { chooseFolder, ensureWritable, isSupported, writeFile } from "../lib/saveToFolder.js";
+import { capturePosting, ensurePageAccess } from "../lib/capture.js";
 
 const $ = (id) => document.getElementById(id);
 
@@ -81,12 +82,29 @@ async function renderPosting() {
     status.textContent = "Open a job posting in a tab, then capture it.";
     $("posting-toggle").hidden = true;
     $("posting-details").hidden = true;
+    $("posting-fields").hidden = true;
+    await renderPackageName();
     return;
   }
   const title = posting.title || "Job posting";
   status.textContent = posting.company ? `${title} · ${posting.company}` : title;
   $("posting-text").textContent = posting.text ?? "";
   $("posting-toggle").hidden = false;
+  $("posting-fields").hidden = false;
+  $("posting-title").value = posting.title ?? "";
+  $("posting-company").value = posting.company ?? "";
+  await renderPackageName();
+}
+
+/** Shows the exact filename that will be written, so surprises are visible up front. */
+async function renderPackageName() {
+  const [posting, resumeMeta] = await Promise.all([getPosting(), getResumeMeta()]);
+  const preview = $("package-name-preview");
+  if (!posting) {
+    preview.textContent = "";
+    return;
+  }
+  preview.textContent = `Will save as: ${packageFileName(posting, { resumeName: resumeMeta?.name })}`;
 }
 
 async function renderFolder() {
@@ -230,6 +248,8 @@ function wire() {
     if (file.size > 10 * 1024 * 1024) return toast("That PDF is larger than 10 MB.", true);
     await saveResumeFile(file, file.name);
     await renderResume();
+    // The resume name feeds the archive name, so refresh the preview.
+    await renderPackageName();
     toast("Resume saved on this device.");
   });
 
@@ -238,13 +258,33 @@ function wire() {
     await renderResume();
   });
 
-  $("capture").addEventListener("click", (event) =>
-    withBusy(event.currentTarget, "Reading…", async () => {
-      const posting = await ask(MSG.CAPTURE_POSTING);
+  $("capture").addEventListener("click", async (event) => {
+    // The permission request must happen synchronously within the click's user
+    // gesture, so it runs before withBusy's first await.
+    const granted = await ensurePageAccess();
+    if (!granted) {
+      toast(
+        "Permission to read pages was declined, so IntelliApply cannot capture. Use “Paste manually” instead.",
+        true
+      );
+      return;
+    }
+    await withBusy(event.currentTarget, "Reading…", async () => {
+      const posting = await capturePosting();
       await renderPosting();
       toast(`Captured "${posting.title || "posting"}".`);
-    })
-  );
+    });
+  });
+
+  // Edits to the title/company are saved and feed straight into the archive name.
+  for (const [id, field] of [["posting-title", "title"], ["posting-company", "company"]]) {
+    $(id).addEventListener("input", async (event) => {
+      const posting = await getPosting();
+      if (!posting) return;
+      await setPosting({ ...posting, [field]: event.target.value.trim() });
+      await renderPackageName();
+    });
+  }
 
   $("posting-toggle").addEventListener("click", () => {
     const details = $("posting-details");
@@ -337,6 +377,8 @@ function wire() {
         resume: resumeFile ? { file: resumeFile, name: resumeMeta?.name ?? "resume.pdf" } : null,
         coverLetter,
         attachments,
+        // Prefer the name the backend parsed out of the resume, when we have it.
+        applicantName: latestScore?.resume_name ?? latestScore?.candidate_name ?? "",
       });
 
       const { fileName, folderName } = await writeFile(handle, pkg.fileName, pkg.bytes);

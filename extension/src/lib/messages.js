@@ -8,9 +8,13 @@
  */
 
 export const MSG = {
-  /** Inject the extractor into the active tab and return the posting text. */
-  CAPTURE_POSTING: "capture-posting",
-  /** Send posting text to the backend for structured extraction. */
+  /**
+   * Send posting text to the backend for structured extraction.
+   *
+   * Note there is no capture message: reading the page happens in the side panel
+   * (src/lib/capture.js) because requesting the optional host permission needs a
+   * user gesture, which a service worker cannot provide.
+   */
   PROCESS_JOB: "process-job",
   /** Parse a stored resume PDF into structured data. */
   PARSE_RESUME: "parse-resume",

@@ -15,7 +15,12 @@ import { mkdtempSync, writeFileSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { buildPackage, formatPosting, packageFileName } from "../src/lib/packageBuilder.js";
+import {
+  applicantFromResumeName,
+  buildPackage,
+  formatPosting,
+  packageFileName,
+} from "../src/lib/packageBuilder.js";
 
 const posting = {
   title: "Backend Developer",
@@ -116,13 +121,54 @@ test("refuses to build without a posting", async () => {
   await assert.rejects(() => buildPackage({ posting: null }), /Capture a job posting/);
 });
 
-test("archive name identifies the company, role and date", () => {
-  const name = packageFileName(posting, new Date("2026-09-07T00:00:00Z"));
-  assert.equal(name, "shopify-backend-developer-2026-09-07.zip");
+const AT = new Date("2026-09-07T00:00:00Z");
 
-  // Still produces something usable when the page yielded no company or title.
-  assert.match(packageFileName({ title: "", company: "" }, new Date("2026-01-02T00:00:00Z")),
-    /^application-2026-01-02\.zip$/);
+test("archive name identifies company, role and whose resume it is", () => {
+  assert.equal(
+    packageFileName(posting, { resumeName: "Alex Chen Resume.pdf" }, AT),
+    "shopify-backend-developer-alex-chen-2026-09-07.zip"
+  );
+});
+
+test("archive name prefers an explicit applicant name over the filename", () => {
+  assert.equal(
+    packageFileName(posting, { applicantName: "Priya Raman", resumeName: "cv-final-v2.pdf" }, AT),
+    "shopify-backend-developer-priya-raman-2026-09-07.zip"
+  );
+});
+
+test("archive name omits parts that are unknown rather than inventing them", () => {
+  assert.equal(packageFileName({ title: "Data Analyst", company: "" }, {}, AT), "data-analyst-2026-09-07.zip");
+  assert.equal(packageFileName({ title: "", company: "Northwind" }, {}, AT), "northwind-2026-09-07.zip");
+  // Nothing identifying at all: still a valid, sortable name.
+  assert.equal(packageFileName({ title: "", company: "" }, {}, AT), "application-2026-09-07.zip");
+});
+
+test("archive name does not repeat a part that already appears", () => {
+  // A resume literally named "shopify.pdf" should not double up the company.
+  assert.equal(
+    packageFileName({ title: "Backend Developer", company: "Shopify" }, { resumeName: "shopify.pdf" }, AT),
+    "shopify-backend-developer-2026-09-07.zip"
+  );
+});
+
+test("applicantFromResumeName strips filler but never returns nothing useful", () => {
+  assert.equal(applicantFromResumeName("Alex Chen Resume.pdf"), "alex-chen");
+  assert.equal(applicantFromResumeName("alex-chen-cv-2026-final.pdf"), "alex-chen");
+  assert.equal(applicantFromResumeName("Priya_Raman_CV_v3.pdf"), "priya-raman");
+  // All filler: fall back to the stem instead of dropping the part entirely.
+  assert.equal(applicantFromResumeName("resume.pdf"), "resume");
+  assert.equal(applicantFromResumeName(""), "");
+});
+
+test("the built package uses the improved name", async () => {
+  const pkg = await buildPackage({
+    posting,
+    resume: { file: pdfBlob(), name: "Alex Chen Resume.pdf" },
+    coverLetter: "",
+    attachments: [],
+  });
+  assert.match(pkg.fileName, /^shopify-backend-developer-alex-chen-\d{4}-\d{2}-\d{2}\.zip$/);
 });
 
 test("formatted posting keeps the source URL and flags truncation", () => {

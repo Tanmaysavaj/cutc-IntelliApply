@@ -14,7 +14,6 @@
 import { MSG, ok, fail } from "../lib/messages.js";
 import { checkHealth, parseResume, processJobDescription, runAnalysis } from "../lib/api.js";
 import { getPosting, getResumeFile, setPosting } from "../lib/store.js";
-import { extractPosting } from "../content/extract-posting.js";
 
 // Clicking the toolbar icon opens the side panel.
 chrome.runtime.onInstalled.addListener(() => {
@@ -23,52 +22,9 @@ chrome.runtime.onInstalled.addListener(() => {
   });
 });
 
-const UNREADABLE_PAGE =
-  "IntelliApply cannot read this page. Open the job posting in a normal tab, then press Capture — " +
-  "or use “Paste manually” below.";
-
-async function activeTab() {
-  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-  if (!tab?.id) throw new Error("No active tab to read.");
-  // `tab.url` is only populated once we have access to the tab, which we
-  // deliberately do not request up front, so treat it as a best-effort hint.
-  if (/^(chrome|edge|about|chrome-extension|devtools|view-source):/i.test(tab.url ?? "")) {
-    throw new Error(UNREADABLE_PAGE);
-  }
-  return tab;
-}
-
-async function capturePosting() {
-  const tab = await activeTab();
-
-  // `activeTab` + `scripting` means the extension has no standing access to any
-  // site: injection only happens on an explicit user action, for this one tab.
-  let result;
-  try {
-    [result] = await chrome.scripting.executeScript({
-      target: { tabId: tab.id },
-      func: extractPosting,
-    });
-  } catch (error) {
-    // Without the broad `tabs` permission we cannot always see the URL in
-    // advance, so the guard above can miss. Chrome's own message here
-    // ("Cannot access contents of the page…") is not something to show a user.
-    const message = String(error?.message ?? error);
-    if (/cannot access|must request permission|chrome:\/\/|showing error page/i.test(message)) {
-      throw new Error(UNREADABLE_PAGE);
-    }
-    throw error;
-  }
-
-  const posting = result?.result;
-  if (!posting || !posting.text || posting.text.length < 120) {
-    throw new Error(
-      "Could not find a job posting on this page. Open the posting's own page, or paste the description manually."
-    );
-  }
-  await setPosting(posting);
-  return posting;
-}
+// Capturing the page deliberately does NOT live here. It needs a user gesture to
+// request the optional host permission, which only an extension page can supply,
+// so it lives in the side panel — see src/lib/capture.js.
 
 async function checkScore() {
   const [resume, posting] = await Promise.all([getResumeFile(), getPosting()]);
@@ -88,11 +44,23 @@ async function checkScore() {
     }
   }
 
-  return runAnalysis(resume, jobData, jobData ? null : posting.text);
+  if (!jobData) return runAnalysis(resume, null, posting.text);
+
+  try {
+    return await runAnalysis(resume, jobData, null);
+  } catch (error) {
+    // The analysis endpoint re-validates job_data against its own model and
+    // answers 422 "Failed to process job information" if it does not fit. The raw
+    // description usually still works, so it is worth one retry before giving up.
+    if (/job (information|data)/i.test(String(error?.message ?? ""))) {
+      console.warn("[IntelliApply] structured job data rejected, retrying with raw text:", error);
+      return runAnalysis(resume, null, posting.text);
+    }
+    throw error;
+  }
 }
 
 const HANDLERS = {
-  [MSG.CAPTURE_POSTING]: capturePosting,
   [MSG.PROCESS_JOB]: async () => {
     const posting = await getPosting();
     if (!posting) throw new Error("Capture a job posting first.");

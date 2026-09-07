@@ -1,0 +1,23 @@
+{
+  "manifest_version": 3,
+  "name": "IntelliApply — job match & application packager",
+  "version": "0.1.0",
+  "description": "Capture a job posting from the page you are on, check how well your resume matches, and save the whole application package as a zip in a folder you choose.",
+  "minimum_chrome_version": "114",
+  "permissions": ["sidePanel", "storage", "activeTab", "scripting"],
+  "host_permissions": [
+    "https://cutc-intelliapply.onrender.com/*",
+    "http://localhost:8000/*",
+    "http://127.0.0.1:8000/*"
+  ],
+  "background": {
+    "service_worker": "src/background/service-worker.js",
+    "type": "module"
+  },
+  "side_panel": {
+    "default_path": "src/sidepanel/index.html"
+  },
+  "action": {
+    "default_title": "Open IntelliApply"
+  }
+}
